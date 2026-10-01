@@ -1,5 +1,26 @@
 import { createTheme } from '@mui/material';
 
+declare module '@mui/material/styles' {
+  interface Palette {
+    artwork: {
+      childBackground: string;
+      parentBackground: string;
+      thumbnail: string;
+      category: string[];
+      categoryOverlay: string;
+      player: string;
+      overlay: string;
+      overlayHover: string;
+      fullscreenOverlay: string;
+      fullscreenOverlayHover: string;
+      onOverlay: string;
+    };
+  }
+  interface PaletteOptions {
+    artwork?: Palette['artwork'];
+  }
+}
+
 export const theme = createTheme({
   colorSchemes: {
     light: {
@@ -8,6 +29,21 @@ export const theme = createTheme({
         secondary: { main: '#e58c67', contrastText: '#fffdf8' },
         background: { default: '#fbf7f0', paper: '#fffdf8' },
         text: { primary: '#25323b', secondary: '#5d6a70' },
+        success: { main: '#2e7d32', dark: '#1b5e20', contrastText: '#fff' },
+        error: { main: '#c62828', dark: '#b71c1c', contrastText: '#fff' },
+        artwork: {
+          childBackground: 'linear-gradient(180deg, #fbf7f0 0%, #eff5f5 100%)',
+          parentBackground: 'linear-gradient(145deg, #d9e6f3, #fbf7f0)',
+          thumbnail: 'linear-gradient(135deg, #d9e6f3, #f8d8c4)',
+          category: ['#f8d8c4', '#dcebdc', '#d9e6f3', '#f1e2ba'],
+          categoryOverlay: 'linear-gradient(transparent, rgba(0, 0, 0, 0.8))',
+          player: '#17232a',
+          overlay: 'rgba(0, 0, 0, 0.75)',
+          overlayHover: 'rgba(0, 0, 0, 0.9)',
+          fullscreenOverlay: 'rgba(0, 0, 0, 0.65)',
+          fullscreenOverlayHover: 'rgba(0, 0, 0, 0.85)',
+          onOverlay: '#fff',
+        },
       },
     },
     dark: {
@@ -16,6 +52,21 @@ export const theme = createTheme({
         secondary: { main: '#f0aa87', contrastText: '#2b1a15' },
         background: { default: '#101a20', paper: '#19262d' },
         text: { primary: '#eef4f5', secondary: '#b8c7ca' },
+        success: { main: '#2e7d32', dark: '#1b5e20', contrastText: '#fff' },
+        error: { main: '#c62828', dark: '#b71c1c', contrastText: '#fff' },
+        artwork: {
+          childBackground: 'linear-gradient(180deg, #101a20 0%, #172b32 100%)',
+          parentBackground: 'linear-gradient(145deg, #1d3442, #101a20)',
+          thumbnail: 'linear-gradient(135deg, #23333e, #4b3940)',
+          category: ['#3b3033', '#29403f', '#293d4b', '#4a3e2d'],
+          categoryOverlay: 'linear-gradient(transparent, rgba(0, 0, 0, 0.8))',
+          player: '#17232a',
+          overlay: 'rgba(0, 0, 0, 0.75)',
+          overlayHover: 'rgba(0, 0, 0, 0.9)',
+          fullscreenOverlay: 'rgba(0, 0, 0, 0.65)',
+          fullscreenOverlayHover: 'rgba(0, 0, 0, 0.85)',
+          onOverlay: '#fff',
+        },
       },
     },
   },

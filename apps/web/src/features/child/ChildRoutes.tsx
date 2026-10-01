@@ -180,10 +180,7 @@ function CategoryCard({
   index: number;
 }) {
   const theme = useTheme();
-  const colors =
-    theme.palette.mode === 'dark'
-      ? ['#3b3033', '#29403f', '#293d4b', '#4a3e2d']
-      : ['#f8d8c4', '#dcebdc', '#d9e6f3', '#f1e2ba'];
+  const colors = theme.palette.artwork.category;
   return (
     <Card sx={{ backgroundColor: colors[index % colors.length] }}>
       <CardActionArea
@@ -202,12 +199,16 @@ function CategoryCard({
             pt: 5,
             px: 2.5,
             pb: 2,
-            background: 'linear-gradient(transparent, rgba(0, 0, 0, 0.8))',
+            background: (theme) => theme.palette.artwork.categoryOverlay,
           }}
         >
           <Typography
             variant="h4"
-            sx={{ color: '#fff', fontWeight: 800, overflowWrap: 'anywhere' }}
+            sx={{
+              color: (theme) => theme.palette.artwork.onOverlay,
+              fontWeight: 800,
+              overflowWrap: 'anywhere',
+            }}
           >
             {category.name}
           </Typography>
@@ -370,10 +371,7 @@ export function MediaThumbnail({ media }: { media: ChildMedia }) {
           placeItems: 'center',
           width: '100%',
           aspectRatio: '16 / 9',
-          background:
-            theme.palette.mode === 'dark'
-              ? 'linear-gradient(135deg, #23333e, #4b3940)'
-              : 'linear-gradient(135deg, #d9e6f3, #f8d8c4)',
+          background: theme.palette.artwork.thumbnail,
         }}
       >
         <SvgIcon aria-hidden sx={{ fontSize: 64 }}>

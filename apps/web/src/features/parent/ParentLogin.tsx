@@ -39,10 +39,7 @@ export function ParentLogin({ onLoggedIn }: { onLoggedIn: () => void }) {
         flexDirection: 'column',
         alignItems: 'flex-end',
         p: 2,
-        background:
-          theme.palette.mode === 'dark'
-            ? 'linear-gradient(145deg, #1d3442, #101a20)'
-            : 'linear-gradient(145deg, #d9e6f3, #fbf7f0)',
+        background: theme.palette.artwork.parentBackground,
       })}
     >
       <ThemeToggle />

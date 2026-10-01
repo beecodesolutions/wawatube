@@ -232,10 +232,7 @@ export function YoutubeImporter({
                   placeItems: 'center',
                   width: '100%',
                   aspectRatio: '16/9',
-                  background:
-                    theme.palette.mode === 'dark'
-                      ? 'linear-gradient(135deg, #23333e, #4b3940)'
-                      : 'linear-gradient(135deg, #d9e6f3, #f8d8c4)',
+                  background: theme.palette.artwork.thumbnail,
                 }}
               >
                 <Typography color="text.secondary">

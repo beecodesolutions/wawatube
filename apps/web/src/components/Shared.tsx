@@ -44,10 +44,7 @@ export function ChildFrame({ children }: { children: ReactNode }) {
     <Box
       sx={{
         minHeight: '100vh',
-        background: (theme) =>
-          theme.palette.mode === 'dark'
-            ? 'linear-gradient(180deg, #101a20 0%, #172b32 100%)'
-            : 'linear-gradient(180deg, #fbf7f0 0%, #eff5f5 100%)',
+        background: (theme) => theme.palette.artwork.childBackground,
       }}
     >
       <AppBar
