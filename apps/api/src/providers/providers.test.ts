@@ -172,12 +172,20 @@ describe('TubeArchivist service', () => {
   it('uses the verified preview, pending, queue and archived endpoints', async () => {
     const requests: { method: string; path: string; body: string }[] = [];
     let archivedCalls = 0;
+    let downloadFormat: string | null = null;
     const originalFetch = globalThis.fetch;
     globalThis.fetch = async (input, init) => {
       const url = new URL(String(input));
       const method = init?.method ?? 'GET';
       const body = typeof init?.body === 'string' ? init.body : '';
       requests.push({ method, path: url.pathname + url.search, body });
+      if (url.pathname === '/api/appsettings/config/') {
+        if (method === 'POST')
+          downloadFormat = JSON.parse(body).downloads.format;
+        return new Response(
+          JSON.stringify({ downloads: { format: downloadFormat } }),
+        );
+      }
       if (
         method === 'POST' &&
         url.pathname === '/api/download/' &&
@@ -223,6 +231,26 @@ describe('TubeArchivist service', () => {
       assert.equal(preview.taskId, 'task-1');
       assert.equal(preview.metadata?.durationSeconds, 19);
       await service.queue(videoId);
+      await service.queue(videoId);
+      assert.equal(
+        downloadFormat,
+        'bv+ba[language^=es]/bv+ba[format_note*=original]/bv+ba/b',
+      );
+      assert.equal(
+        requests.filter(
+          ({ method, path }) =>
+            method === 'POST' && path === '/api/appsettings/config/',
+        ).length,
+        1,
+      );
+      assert.deepEqual(
+        requests.slice(3, 6).map(({ method, path }) => `${method} ${path}`),
+        [
+          'GET /api/appsettings/config/',
+          'POST /api/appsettings/config/',
+          `POST /api/download/${videoId}/`,
+        ],
+      );
       assert.deepEqual(await service.metadataResource(videoId), {
         mediaPath: '/media/video.mp4',
         thumbnailPath: '/media/thumb.jpg',

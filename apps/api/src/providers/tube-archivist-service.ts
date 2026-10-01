@@ -7,6 +7,8 @@ type MetadataRecord = Record<string, unknown>;
 const VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
 const RESOURCE_ROOTS = ['/media', '/youtube', '/cache/videos'] as const;
 const REQUEST_TIMEOUT_MS = 10_000;
+const PREFERRED_AUDIO_LANGUAGE = 'es';
+const DOWNLOAD_FORMAT = `bv+ba[language^=${PREFERRED_AUDIO_LANGUAGE}]/bv+ba[format_note*=original]/bv+ba/b`;
 
 export class TubeArchivistService {
   private readonly baseUrl: URL;
@@ -172,11 +174,30 @@ export class TubeArchivistService {
 
   async queue(videoId: string): Promise<void> {
     validateVideoId(videoId);
+    await this.configureAudio();
     const response = await this.request(`/api/download/${videoId}/`, {
       method: 'POST',
       body: JSON.stringify({ status: 'priority' }),
     });
     if (!response.ok) throw new ProviderError('UPSTREAM_ERROR');
+  }
+
+  private async configureAudio(): Promise<void> {
+    const response = await this.request('/api/appsettings/config/', {
+      method: 'GET',
+    });
+    if (!response.ok) throw new ProviderError('UPSTREAM_ERROR');
+    const config = await this.json(response);
+    const downloads = config.downloads;
+    if (!isRecord(downloads))
+      throw new ProviderError('UPSTREAM_INVALID_RESPONSE');
+    if (downloads.format === DOWNLOAD_FORMAT) return;
+
+    const updated = await this.request('/api/appsettings/config/', {
+      method: 'POST',
+      body: JSON.stringify({ downloads: { format: DOWNLOAD_FORMAT } }),
+    });
+    if (!updated.ok) throw new ProviderError('UPSTREAM_ERROR');
   }
 
   async failed(videoId: string): Promise<boolean> {
