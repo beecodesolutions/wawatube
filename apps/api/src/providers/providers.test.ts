@@ -1,4 +1,12 @@
-import { mkdtemp, symlink, writeFile } from 'node:fs/promises';
+import {
+  chmod,
+  mkdtemp,
+  readFile,
+  readdir,
+  symlink,
+  unlink,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
@@ -14,6 +22,57 @@ import {
 
 const videoId = 'dQw4w9WgXcQ';
 describe('local media provider', () => {
+  it('generates a cached first frame without changing the source video', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'wawatube-local-'));
+    const video = join(root, 'sample.mp4');
+    const ffmpeg = join(root, 'fake-ffmpeg.mjs');
+    await writeFile(video, 'source video');
+    await writeFile(
+      ffmpeg,
+      `#!/usr/bin/env node
+import { writeFile } from 'node:fs/promises';
+await writeFile(process.argv.at(-1), Buffer.from('first frame'));
+`,
+    );
+    await chmod(ffmpeg, 0o755);
+    const provider = new LocalMediaProvider(root, 'ffprobe', ffmpeg);
+
+    const first = await provider.thumbnail('sample.mp4');
+    assert.deepEqual(first, {
+      kind: 'file',
+      root,
+      relativePath: '.wawatube-thumbnails/sample.jpg',
+    });
+    assert.equal(await readFile(video, 'utf8'), 'source video');
+    assert.equal(
+      await readFile(join(root, '.wawatube-thumbnails/sample.jpg'), 'utf8'),
+      'first frame',
+    );
+
+    await unlink(ffmpeg);
+    assert.deepEqual(await provider.thumbnail('sample.mp4'), first);
+  });
+
+  it('does not write generated thumbnails through an unsafe cache symlink', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'wawatube-local-'));
+    const outside = await mkdtemp(join(tmpdir(), 'wawatube-outside-'));
+    const ffmpeg = join(root, 'fake-ffmpeg.mjs');
+    await writeFile(join(root, 'sample.mp4'), 'source video');
+    await writeFile(
+      ffmpeg,
+      `#!/usr/bin/env node
+import { writeFile } from 'node:fs/promises';
+await writeFile(process.argv.at(-1), Buffer.from('outside'));
+`,
+    );
+    await chmod(ffmpeg, 0o755);
+    await symlink(outside, join(root, '.wawatube-thumbnails'));
+
+    const provider = new LocalMediaProvider(root, 'ffprobe', ffmpeg);
+    assert.equal(await provider.thumbnail('sample.mp4'), null);
+    assert.deepEqual(await readdir(outside), []);
+  });
+
   it('rejects traversal and skips symlinks outside the root', async () => {
     const root = await mkdtemp(join(tmpdir(), 'wawatube-local-'));
     const outside = await mkdtemp(join(tmpdir(), 'wawatube-outside-'));

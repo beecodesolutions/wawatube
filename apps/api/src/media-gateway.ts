@@ -119,11 +119,15 @@ export const childMedia = (row: {
   description: string | null;
   durationSeconds: number | null;
   thumbnailRef?: string | null;
+  sourceType?: string;
 }): ChildMedia => ({
   id: row.id,
   title: row.title,
   description: row.description,
   durationSeconds: row.durationSeconds,
-  thumbnailUrl: row.thumbnailRef ? `/api/kids/media/${row.id}/thumbnail` : null,
+  thumbnailUrl:
+    row.thumbnailRef || row.sourceType === 'LOCAL'
+      ? `/api/kids/media/${row.id}/thumbnail`
+      : null,
   playbackUrl: `/api/kids/media/${row.id}/play`,
 });

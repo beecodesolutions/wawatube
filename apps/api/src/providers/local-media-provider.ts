@@ -1,6 +1,15 @@
+import { randomUUID } from 'node:crypto';
 import { execFile } from 'node:child_process';
-import { realpath, readdir, stat } from 'node:fs/promises';
 import {
+  mkdir,
+  realpath,
+  readdir,
+  rename,
+  stat,
+  unlink,
+} from 'node:fs/promises';
+import {
+  dirname,
   extname,
   isAbsolute,
   join,
@@ -19,6 +28,7 @@ import { ProviderError } from './errors.js';
 
 const EXTENSIONS = new Set(['.mp4', '.mkv', '.webm', '.mov']);
 const IMAGE_EXTENSIONS = ['.jpg', '.png'] as const;
+const GENERATED_THUMBNAIL_DIRECTORY = '.wawatube-thumbnails';
 
 type ProbeResult = {
   format?: {
@@ -39,14 +49,31 @@ const probe = (command: string, file: string): Promise<string> =>
     );
   });
 
+const generateFrame = (
+  command: string,
+  input: string,
+  output: string,
+): Promise<void> =>
+  new Promise((resolveOutput, reject) => {
+    execFile(
+      command,
+      ['-v', 'error', '-y', '-i', input, '-frames:v', '1', '-q:v', '2', output],
+      { timeout: 15_000, maxBuffer: 1_000_000 },
+      (error) => (error ? reject(error) : resolveOutput()),
+    );
+  });
+
 export class LocalMediaProvider implements MediaProvider {
   readonly sourceType = 'LOCAL' as const;
   private readonly root: string;
   private readonly ffprobePath: string;
+  private readonly ffmpegPath: string;
+  private readonly thumbnailJobs = new Map<string, Promise<string | null>>();
 
-  constructor(root: string, ffprobePath = 'ffprobe') {
+  constructor(root: string, ffprobePath = 'ffprobe', ffmpegPath = 'ffmpeg') {
     this.root = resolve(root);
     this.ffprobePath = ffprobePath;
+    this.ffmpegPath = ffmpegPath;
   }
 
   async discover(): Promise<LocalCandidate[]> {
@@ -92,7 +119,7 @@ export class LocalMediaProvider implements MediaProvider {
       description: format.tags?.description ?? null,
       durationSeconds:
         Number.isFinite(duration) && duration >= 0 ? duration : null,
-      thumbnailRef: await this.thumbnailId(id),
+      thumbnailRef: await this.thumbnailId(id, file),
     };
   }
 
@@ -120,8 +147,8 @@ export class LocalMediaProvider implements MediaProvider {
 
   async thumbnail(sourceId: string): Promise<MediaResource | null> {
     const id = normalizeSourceId(sourceId);
-    await this.filePath(id);
-    const thumbnail = await this.thumbnailId(id);
+    const file = await this.filePath(id);
+    const thumbnail = await this.thumbnailId(id, file);
     return thumbnail
       ? { kind: 'file', root: this.root, relativePath: thumbnail }
       : null;
@@ -160,13 +187,58 @@ export class LocalMediaProvider implements MediaProvider {
     }
   }
 
-  private async thumbnailId(sourceId: string): Promise<string | null> {
+  private async thumbnailId(
+    sourceId: string,
+    file: string,
+  ): Promise<string | null> {
     const withoutExtension = sourceId.slice(0, -extname(sourceId).length);
     for (const extension of IMAGE_EXTENSIONS) {
       const candidate = `${withoutExtension}${extension}`;
       if (await this.filePathIfSafe(candidate)) return candidate;
     }
-    return null;
+    const generated = `${GENERATED_THUMBNAIL_DIRECTORY}/${withoutExtension}.jpg`;
+    if (await this.filePathIfSafe(generated)) return generated;
+    let job = this.thumbnailJobs.get(sourceId);
+    if (!job) {
+      job = this.generateThumbnail(file, generated);
+      this.thumbnailJobs.set(sourceId, job);
+    }
+    try {
+      return await job;
+    } finally {
+      if (this.thumbnailJobs.get(sourceId) === job)
+        this.thumbnailJobs.delete(sourceId);
+    }
+  }
+
+  private async generateThumbnail(
+    input: string,
+    relativePath: string,
+  ): Promise<string | null> {
+    let temporary: string | undefined;
+    try {
+      const root = await this.rootPath();
+      const output = join(root, relativePath.split('/').join(sep));
+      const directory = dirname(output);
+      await mkdir(directory, { recursive: true });
+      const outputDirectory = await realpath(directory);
+      const cacheRelative = relative(root, outputDirectory);
+      if (
+        !cacheRelative ||
+        cacheRelative.startsWith(`..${sep}`) ||
+        isAbsolute(cacheRelative)
+      )
+        return null;
+      temporary = `${output}.tmp-${randomUUID()}.jpg`;
+      await generateFrame(this.ffmpegPath, input, temporary);
+      await rename(temporary, output);
+      temporary = undefined;
+      return (await this.filePathIfSafe(relativePath)) ? relativePath : null;
+    } catch {
+      return null;
+    } finally {
+      if (temporary) await unlink(temporary).catch(() => undefined);
+    }
   }
 
   private async filePathIfSafe(sourceId: string): Promise<boolean> {

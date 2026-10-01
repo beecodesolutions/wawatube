@@ -1,6 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useLocation, useParams } from 'react-router-dom';
+import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
+import ThumbUpRoundedIcon from '@mui/icons-material/ThumbUpRounded';
+import {
+  MediaControlBar,
+  MediaController,
+  MediaTimeRange,
+} from 'media-chrome/react';
 import {
   Box,
   Button,
@@ -28,19 +35,15 @@ import {
 
 export const THUMBNAIL_RETRY_DELAYS_MS = [1000, 3000, 10000] as const;
 
-function BackButton() {
+function BackButton({ to = '/' }: { to?: string }) {
   const { t } = useTranslation();
   return (
     <Button
       component={Link}
-      to="/"
+      to={to}
       variant="contained"
       size="large"
-      startIcon={
-        <Box component="span" aria-hidden sx={{ fontSize: '2rem' }}>
-          ⬅️
-        </Box>
-      }
+      startIcon={<ArrowBackRoundedIcon sx={{ fontSize: '2rem' }} />}
       sx={{ mb: 4, minHeight: 64, px: 3, fontSize: '1.25rem', borderRadius: 3 }}
     >
       {t('nav.back')}
@@ -138,7 +141,7 @@ export function ChildHome() {
           </Typography>
         </Stack>
         {error ? (
-          <ErrorState message={error} retry={load} />
+          <ErrorState message={error} retry={load} childFriendly />
         ) : categories === null ? (
           <LoadingState />
         ) : null}
@@ -294,7 +297,7 @@ export function ChildCategory() {
       <Container maxWidth="lg" sx={{ py: { xs: 3, md: 6 } }}>
         <BackButton />
         {error ? (
-          <ErrorState message={error} retry={load} />
+          <ErrorState message={error} retry={load} childFriendly />
         ) : result === null ? (
           <LoadingState />
         ) : null}
@@ -320,7 +323,11 @@ export function ChildCategory() {
                 }}
               >
                 {result.media.map((media) => (
-                  <MediaCard key={media.id} media={media} />
+                  <MediaCard
+                    key={media.id}
+                    media={media}
+                    categoryId={result.category.id}
+                  />
                 ))}
               </Box>
             )}
@@ -331,14 +338,21 @@ export function ChildCategory() {
   );
 }
 
-function MediaCard({ media }: { media: ChildMedia }) {
+function MediaCard({
+  media,
+  categoryId,
+}: {
+  media: ChildMedia;
+  categoryId: string;
+}) {
   return (
     <Card>
-      <CardActionArea component={Link} to={`/watch/${media.id}`}>
-        <MediaThumbnail
-          key={media.thumbnailUrl ?? 'fallback'}
-          media={media}
-        />
+      <CardActionArea
+        component={Link}
+        to={`/watch/${media.id}`}
+        state={{ categoryId }}
+      >
+        <MediaThumbnail key={media.thumbnailUrl ?? 'fallback'} media={media} />
         <CardContent>
           <Typography
             variant="h6"
@@ -398,9 +412,19 @@ export function MediaThumbnail({ media }: { media: ChildMedia }) {
 
 export function ChildPlayer() {
   const { t } = useTranslation();
+  const theme = useTheme();
   const { mediaId } = useParams();
+  const location = useLocation();
+  const categoryId = (location.state as { categoryId?: unknown } | null)
+    ?.categoryId;
+  const backTo =
+    typeof categoryId === 'string' ? `/category/${categoryId}` : '/';
   const playerRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const lastTap = useRef<{ at: number; side: 'left' | 'right' } | null>(null);
   const [expanded, setExpanded] = useState(false);
+  const [playing, setPlaying] = useState(false);
+  const [muted, setMuted] = useState(false);
   const [media, setMedia] = useState<ChildMedia | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [ending, setEnding] = useState<'watching' | 'choice' | 'goodbye'>(
@@ -477,9 +501,9 @@ export function ChildPlayer() {
   return (
     <ChildFrame>
       <Container maxWidth="lg" sx={{ py: { xs: 3, md: 6 } }}>
-        <BackButton />
+        <BackButton to={backTo} />
         {error ? (
-          <ErrorState message={error} retry={load} />
+          <ErrorState message={error} retry={load} childFriendly />
         ) : media === null ? (
           <LoadingState />
         ) : null}
@@ -504,59 +528,185 @@ export function ChildPlayer() {
                   zIndex: (theme) => theme.zIndex.modal + 1,
                   height: '100dvh',
                 }),
-                backgroundColor: '#17232a',
+                backgroundColor: (theme) => theme.palette.artwork.player,
                 borderRadius: expanded ? 0 : '16px',
                 overflow: 'hidden',
               }}
             >
-              <Box
-                component="video"
-                src={media.playbackUrl}
-                poster={media.thumbnailUrl ?? undefined}
-                controls
-                controlsList="nofullscreen"
-                playsInline
-                onEnded={() => setEnding('choice')}
-                aria-label={t('child.playerLabel')}
-                onError={() => setError(t('child.playerError'))}
-                sx={{
+              <MediaController
+                style={{
                   display: 'block',
                   width: '100%',
-                  height: expanded ? '100%' : 'auto',
-                  maxHeight: expanded ? 'none' : '72vh',
-                  '&::-webkit-media-controls-fullscreen-button': {
-                    display: 'none',
-                  },
+                  height: expanded ? '100%' : undefined,
                 }}
-              />
-              {ending === 'watching' && (
-                <IconButton
-                  onClick={() => void toggleFullscreen()}
-                  aria-label={t(
-                    expanded ? 'child.exitFullscreen' : 'child.fullscreen',
-                  )}
-                  sx={{
-                    position: 'absolute',
-                    top: 12,
-                    right: 12,
-                    width: 56,
-                    height: 56,
-                    backgroundColor: 'rgba(0, 0, 0, 0.65)',
-                    color: '#fff',
-                    '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.85)' },
+              >
+                <Box
+                  component="video"
+                  ref={videoRef}
+                  slot="media"
+                  src={media.playbackUrl}
+                  poster={media.thumbnailUrl ?? undefined}
+                  playsInline
+                  onPlay={() => setPlaying(true)}
+                  onPause={() => setPlaying(false)}
+                  onEnded={() => setEnding('choice')}
+                  aria-label={t('child.playerLabel')}
+                  onError={() => setError(t('child.playerError'))}
+                  onPointerUp={(event) => {
+                    const video = videoRef.current;
+                    if (!video) return;
+                    const bounds = video.getBoundingClientRect();
+                    const side =
+                      event.clientX < bounds.left + bounds.width / 2
+                        ? 'left'
+                        : 'right';
+                    const now = Date.now();
+                    if (
+                      lastTap.current?.side === side &&
+                      now - lastTap.current.at < 350
+                    ) {
+                      video.currentTime =
+                        side === 'left'
+                          ? Math.max(0, video.currentTime - 10)
+                          : Math.min(
+                              Number.isFinite(video.duration)
+                                ? video.duration
+                                : video.currentTime + 10,
+                              video.currentTime + 10,
+                            );
+                      lastTap.current = null;
+                    } else lastTap.current = { at: now, side };
                   }}
-                >
-                  <SvgIcon aria-hidden sx={{ fontSize: 32 }}>
-                    <path
-                      d={
-                        expanded
-                          ? 'M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z'
-                          : 'M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z'
+                  sx={{
+                    display: 'block',
+                    width: '100%',
+                    height: expanded ? '100%' : 'auto',
+                    maxHeight: expanded
+                      ? 'none'
+                      : 'min(72vh, max(240px, calc(100dvh - 350px)))',
+                    touchAction: 'manipulation',
+                  }}
+                />
+                {ending === 'watching' && (
+                  <MediaControlBar
+                    style={{
+                      padding: '8px 16px',
+                      background: theme.palette.artwork.fullscreenOverlay,
+                    }}
+                  >
+                    <MediaTimeRange
+                      aria-label={t('child.seek')}
+                      style={
+                        {
+                          width: '100%',
+                          height: 48,
+                          '--media-range-track-height': '10px',
+                          '--media-range-thumb-width': '24px',
+                          '--media-range-thumb-height': '24px',
+                        } as CSSProperties
                       }
                     />
-                  </SvgIcon>
-                </IconButton>
-              )}
+                  </MediaControlBar>
+                )}
+                {ending === 'watching' && (
+                  <Stack
+                    direction="row"
+                    spacing={2}
+                    sx={{ position: 'absolute', bottom: 72, left: 16 }}
+                  >
+                    <IconButton
+                      onClick={() => {
+                        const video = videoRef.current;
+                        if (!video) return;
+                        if (video.paused)
+                          void video
+                            .play()
+                            .catch(() => setError(t('child.playerError')));
+                        else video.pause();
+                      }}
+                      aria-label={t(playing ? 'child.pause' : 'child.play')}
+                      sx={{
+                        width: 72,
+                        height: 72,
+                        bgcolor: 'primary.main',
+                        color: 'primary.contrastText',
+                        '&:hover': { bgcolor: 'primary.dark' },
+                      }}
+                    >
+                      <SvgIcon aria-hidden sx={{ fontSize: 44 }}>
+                        <path
+                          d={
+                            playing
+                              ? 'M6 4h4v16H6zm8 0h4v16h-4z'
+                              : 'M8 5v14l11-7z'
+                          }
+                        />
+                      </SvgIcon>
+                    </IconButton>
+                    <IconButton
+                      onClick={() => {
+                        const video = videoRef.current;
+                        if (!video) return;
+                        video.muted = !video.muted;
+                        setMuted(video.muted);
+                      }}
+                      aria-label={t(muted ? 'child.unmute' : 'child.mute')}
+                      sx={{
+                        width: 64,
+                        height: 64,
+                        bgcolor: (theme) => theme.palette.artwork.overlay,
+                        color: (theme) => theme.palette.artwork.onOverlay,
+                        '&:hover': {
+                          bgcolor: (theme) =>
+                            theme.palette.artwork.overlayHover,
+                        },
+                      }}
+                    >
+                      <SvgIcon aria-hidden sx={{ fontSize: 38 }}>
+                        <path
+                          d={
+                            muted
+                              ? 'M3 9v6h4l5 5V4L7 9H3zm12.5 3 3.5-3.5-1.5-1.5L14 10.5 10.5 7 9 8.5l3.5 3.5L9 15.5l1.5 1.5L14 13.5l3.5 3.5 1.5-1.5z'
+                              : 'M3 9v6h4l5 5V4L7 9H3zm11.5-5.5v2.1a7 7 0 0 1 0 12.8v2.1a9 9 0 0 0 0-17z'
+                          }
+                        />
+                      </SvgIcon>
+                    </IconButton>
+                  </Stack>
+                )}
+                {ending === 'watching' && (
+                  <IconButton
+                    onClick={() => void toggleFullscreen()}
+                    aria-label={t(
+                      expanded ? 'child.exitFullscreen' : 'child.fullscreen',
+                    )}
+                    sx={{
+                      position: 'absolute',
+                      top: 12,
+                      right: 12,
+                      width: 64,
+                      height: 64,
+                      backgroundColor: (theme) =>
+                        theme.palette.artwork.fullscreenOverlay,
+                      color: (theme) => theme.palette.artwork.onOverlay,
+                      '&:hover': {
+                        backgroundColor: (theme) =>
+                          theme.palette.artwork.fullscreenOverlayHover,
+                      },
+                    }}
+                  >
+                    <SvgIcon aria-hidden sx={{ fontSize: 32 }}>
+                      <path
+                        d={
+                          expanded
+                            ? 'M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z'
+                            : 'M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z'
+                        }
+                      />
+                    </SvgIcon>
+                  </IconButton>
+                )}
+              </MediaController>
               <Dialog
                 open={ending !== 'watching'}
                 fullScreen
@@ -598,48 +748,64 @@ export function ChildPlayer() {
                         to="/"
                         replace
                         variant="contained"
-                        aria-label={t('common.yes')}
+                        aria-label={t('child.watchAnotherShort')}
                         sx={{
                           flex: 1,
                           minWidth: 0,
-                          minHeight: 112,
-                          backgroundColor: '#2e7d32',
-                          color: '#fff',
-                          '&:hover': { backgroundColor: '#1b5e20' },
+                          minHeight: 144,
+                          backgroundColor: 'success.main',
+                          color: (theme) => theme.palette.artwork.onOverlay,
+                          '&:hover': { backgroundColor: 'success.dark' },
                         }}
                       >
-                        <SvgIcon aria-hidden sx={{ fontSize: 72 }}>
-                          <path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
-                        </SvgIcon>
+                        <Stack alignItems="center" spacing={1}>
+                          <ThumbUpRoundedIcon
+                            aria-hidden
+                            sx={{ fontSize: 64 }}
+                          />
+                          <Typography sx={{ fontWeight: 800 }}>
+                            {t('child.watchAnotherShort')}
+                          </Typography>
+                        </Stack>
                       </Button>
                       <Button
                         variant="contained"
-                        aria-label={t('common.no')}
+                        aria-label={t('child.finish')}
                         onClick={() => setEnding('goodbye')}
                         sx={{
                           flex: 1,
                           minWidth: 0,
-                          minHeight: 112,
-                          backgroundColor: '#c62828',
-                          color: '#fff',
-                          '&:hover': { backgroundColor: '#b71c1c' },
+                          minHeight: 144,
+                          backgroundColor: 'error.main',
+                          color: (theme) => theme.palette.artwork.onOverlay,
+                          '&:hover': { backgroundColor: 'error.dark' },
                         }}
                       >
-                        <SvgIcon aria-hidden sx={{ fontSize: 72 }}>
-                          <path d="m18.3 5.71-1.41-1.42L12 9.17 7.11 4.29 5.7 5.71 10.59 10.6 5.7 15.49l1.41 1.42L12 12.01l4.89 4.9 1.41-1.42-4.89-4.89z" />
-                        </SvgIcon>
+                        <Stack alignItems="center" spacing={1}>
+                          <Box
+                            component="span"
+                            aria-hidden
+                            sx={{ fontSize: 64 }}
+                          >
+                            👋
+                          </Box>
+                          <Typography sx={{ fontWeight: 800 }}>
+                            {t('child.finish')}
+                          </Typography>
+                        </Stack>
                       </Button>
                     </Stack>
                   ) : (
-                    <Typography
-                      component="p"
-                      tabIndex={-1}
-                      ref={(node: HTMLParagraphElement | null) => node?.focus()}
-                      aria-label={t('child.goodbye')}
-                      sx={{ fontSize: '5rem', outline: 'none' }}
+                    <Button
+                      component={Link}
+                      to="/"
+                      replace
+                      variant="contained"
+                      aria-label={t('nav.home')}
+                      sx={{ minWidth: 160, minHeight: 112, fontSize: '4rem' }}
                     >
-                      <span aria-hidden>👋</span>
-                    </Typography>
+                      <span aria-hidden>🏠</span>
+                    </Button>
                   )}
                 </DialogContent>
               </Dialog>

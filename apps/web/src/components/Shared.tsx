@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import ReplayRoundedIcon from '@mui/icons-material/ReplayRounded';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import {
@@ -104,16 +105,34 @@ export function LoadingState({ label = 'common.loading' }: { label?: string }) {
 export function ErrorState({
   message,
   retry,
+  childFriendly = false,
 }: {
   message: string;
   retry?: () => void;
+  childFriendly?: boolean;
 }) {
   const { t } = useTranslation();
   return (
     <Alert
       severity="error"
       action={
-        retry ? <Button onClick={retry}>{t('common.retry')}</Button> : undefined
+        retry ? (
+          <Button
+            onClick={retry}
+            variant={childFriendly ? 'contained' : 'text'}
+            size={childFriendly ? 'large' : 'medium'}
+            sx={
+              childFriendly
+                ? { minHeight: 64, minWidth: 64, fontSize: '1.5rem' }
+                : undefined
+            }
+          >
+            {childFriendly && (
+              <ReplayRoundedIcon sx={{ mr: 1, fontSize: 32 }} />
+            )}
+            {t('common.retry')}
+          </Button>
+        ) : undefined
       }
       sx={{ my: 3 }}
     >

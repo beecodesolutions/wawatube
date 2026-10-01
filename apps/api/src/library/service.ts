@@ -220,9 +220,10 @@ export class LibraryService {
     );
     return {
       ...childMedia(row),
-      thumbnailUrl: row.thumbnailRef
-        ? `/api/admin/media/${row.id}/thumbnail`
-        : null,
+      thumbnailUrl:
+        row.thumbnailRef || row.sourceType === 'LOCAL'
+          ? `/api/admin/media/${row.id}/thumbnail`
+          : null,
       sourceType: sourceType(row.sourceType),
       visible: row.visible,
       sortOrder: row.sortOrder,
@@ -372,9 +373,10 @@ export class LibraryService {
       }
       return {
         ...childMedia(row),
-        thumbnailUrl: row.thumbnailRef
-          ? `/api/admin/media/${row.id}/thumbnail`
-          : null,
+        thumbnailUrl:
+          row.thumbnailRef || row.sourceType === 'LOCAL'
+            ? `/api/admin/media/${row.id}/thumbnail`
+            : null,
         sourceType: sourceType(row.sourceType),
         visible: row.visible,
         sortOrder: row.sortOrder,
