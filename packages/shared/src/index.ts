@@ -7,6 +7,8 @@ export interface Category {
   name: string;
   icon: string;
   sortOrder: number;
+  thumbnailMediaId: string | null;
+  thumbnailUrl: string | null;
 }
 export interface ChildMedia {
   id: string;
@@ -75,6 +77,7 @@ export interface CategoryInput {
   name: string;
   icon: string;
   sortOrder?: number;
+  thumbnailMediaId?: string | null;
 }
 export interface ImportConfirmation {
   categoryIds: string[];

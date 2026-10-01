@@ -43,6 +43,14 @@ test('API isolates hidden media, validates bodies, serves local ranges and resum
       [],
       { prepare: false },
     );
+    await sql.unsafe(
+      await readFile(
+        new URL('../migrations/0002_category_thumbnails.sql', import.meta.url),
+        'utf8',
+      ),
+      [],
+      { prepare: false },
+    );
     const db = drizzle(sql, { schema });
     const file = join(mediaRoot, 'sample.mp4');
     await writeFile(file, Buffer.from('0123456789'));
@@ -94,17 +102,14 @@ test('API isolates hidden media, validates bodies, serves local ranges and resum
     const session = await createSession(db, 1);
     const cookie = `wawatube_session=${session.token}`;
     const admin = { cookie };
-    assert.equal(
-      (
-        await app.inject({
-          method: 'POST',
-          url: '/api/admin/categories',
-          headers: admin,
-          payload: { name: 'Test', icon: 'star' },
-        })
-      ).statusCode,
-      200,
-    );
+    const categoryResponse = await app.inject({
+      method: 'POST',
+      url: '/api/admin/categories',
+      headers: admin,
+      payload: { name: 'Test', icon: 'star' },
+    });
+    assert.equal(categoryResponse.statusCode, 200);
+    const categoryId = categoryResponse.json().id as string;
     assert.equal(
       (
         await app.inject({
@@ -127,6 +132,178 @@ test('API isolates hidden media, validates bodies, serves local ranges and resum
       })
       .returning();
     const hiddenId = hidden[0]!.id;
+
+    const [automatic] = await db
+      .insert(schema.mediaItems)
+      .values({
+        sourceType: 'YOUTUBE',
+        sourceId: 'category-automatic',
+        title: 'Automatic first',
+        visible: true,
+        sortOrder: 0,
+        availability: 'AVAILABLE',
+      })
+      .returning();
+    const [manual] = await db
+      .insert(schema.mediaItems)
+      .values({
+        sourceType: 'YOUTUBE',
+        sourceId: 'category-manual',
+        title: 'Manual second',
+        thumbnailRef: 'thumbnail.jpg',
+        visible: true,
+        sortOrder: 1,
+        availability: 'AVAILABLE',
+      })
+      .returning();
+    const [outside] = await db
+      .insert(schema.mediaItems)
+      .values({
+        sourceType: 'YOUTUBE',
+        sourceId: 'category-outside',
+        title: 'Outside',
+        thumbnailRef: 'thumbnail.jpg',
+        visible: true,
+        availability: 'AVAILABLE',
+      })
+      .returning();
+    await db.insert(schema.mediaCategories).values([
+      { mediaItemId: automatic!.id, categoryId },
+      { mediaItemId: manual!.id, categoryId },
+    ]);
+    availableYoutube = true;
+    const automaticCategory = (
+      await app.inject({
+        url: '/api/kids/categories',
+      })
+    )
+      .json()
+      .find((item: { id: string }) => item.id === categoryId);
+    assert.equal(automaticCategory.thumbnailMediaId, null);
+    assert.equal(automaticCategory.thumbnailUrl, null);
+    await db
+      .update(schema.mediaItems)
+      .set({ thumbnailRef: 'thumbnail.jpg' })
+      .where(eq(schema.mediaItems.id, automatic!.id));
+    const automaticWithThumbnail = (
+      await app.inject({ url: '/api/kids/categories' })
+    )
+      .json()
+      .find((item: { id: string }) => item.id === categoryId);
+    assert.equal(
+      automaticWithThumbnail.thumbnailUrl,
+      `/api/kids/media/${automatic!.id}/thumbnail`,
+    );
+    const selected = await app.inject({
+      method: 'PATCH',
+      url: `/api/admin/categories/${categoryId}`,
+      headers: admin,
+      payload: {
+        name: 'Test',
+        icon: 'star',
+        thumbnailMediaId: manual!.id,
+      },
+    });
+    assert.equal(selected.statusCode, 200);
+    assert.equal(selected.json().thumbnailMediaId, manual!.id);
+    assert.equal(
+      selected.json().thumbnailUrl,
+      `/api/kids/media/${manual!.id}/thumbnail`,
+    );
+    assert.equal(
+      (
+        await app.inject({
+          method: 'PATCH',
+          url: `/api/admin/categories/${categoryId}`,
+          headers: admin,
+          payload: {
+            name: 'Test',
+            icon: 'star',
+            thumbnailMediaId: outside!.id,
+          },
+        })
+      ).statusCode,
+      400,
+    );
+    assert.equal(
+      (
+        await app.inject({
+          method: 'PATCH',
+          url: `/api/admin/categories/${categoryId}`,
+          headers: admin,
+          payload: {
+            name: 'Test',
+            icon: 'star',
+            thumbnailMediaId: '00000000-0000-4000-8000-000000000000',
+          },
+        })
+      ).statusCode,
+      400,
+    );
+    await db
+      .update(schema.mediaItems)
+      .set({ visible: false })
+      .where(eq(schema.mediaItems.id, manual!.id));
+    const fallback = await app.inject({
+      url: `/api/kids/categories/${categoryId}/media`,
+    });
+    assert.equal(fallback.statusCode, 200);
+    assert.equal(fallback.json().category.thumbnailMediaId, null);
+    assert.equal(
+      fallback.json().category.thumbnailUrl,
+      `/api/kids/media/${automatic!.id}/thumbnail`,
+    );
+    const reset = await app.inject({
+      method: 'PATCH',
+      url: `/api/admin/categories/${categoryId}`,
+      headers: admin,
+      payload: { name: 'Test', icon: 'star', thumbnailMediaId: null },
+    });
+    assert.equal(reset.statusCode, 200);
+    assert.equal(reset.json().thumbnailMediaId, null);
+    assert.equal(
+      reset.json().thumbnailUrl,
+      `/api/kids/media/${automatic!.id}/thumbnail`,
+    );
+    await db
+      .update(schema.mediaItems)
+      .set({ visible: true })
+      .where(eq(schema.mediaItems.id, manual!.id));
+    await app.inject({
+      method: 'PATCH',
+      url: `/api/admin/categories/${categoryId}`,
+      headers: admin,
+      payload: { name: 'Test', icon: 'star', thumbnailMediaId: manual!.id },
+    });
+    await db
+      .delete(schema.mediaCategories)
+      .where(eq(schema.mediaCategories.mediaItemId, manual!.id));
+    const unassigned = (
+      await app.inject({ url: '/api/kids/categories' })
+    ).json()[0];
+    assert.equal(unassigned.thumbnailMediaId, null);
+    assert.equal(
+      unassigned.thumbnailUrl,
+      `/api/kids/media/${automatic!.id}/thumbnail`,
+    );
+    await db
+      .delete(schema.mediaItems)
+      .where(eq(schema.mediaItems.id, manual!.id));
+    const afterDelete = (
+      await app.inject({ url: '/api/admin/categories', headers: admin })
+    ).json()[0];
+    assert.equal(afterDelete.thumbnailMediaId, null);
+    assert.equal(
+      afterDelete.thumbnailUrl,
+      `/api/kids/media/${automatic!.id}/thumbnail`,
+    );
+    availableYoutube = false;
+    assert.equal(
+      (await app.inject({ url: '/api/kids/categories' })).json()[0]
+        .thumbnailUrl,
+      null,
+    );
+
     for (const route of ['', '/play', '/thumbnail'])
       assert.equal(
         (await app.inject({ url: `/api/kids/media/${hiddenId}${route}` }))

@@ -21,7 +21,14 @@ export const categoryBody = {
     type: 'object',
     required: ['name', 'icon'],
     additionalProperties: false,
-    properties: { name: text, icon: text, sortOrder: { type: 'integer' } },
+    properties: {
+      name: text,
+      icon: text,
+      sortOrder: { type: 'integer' },
+      thumbnailMediaId: {
+        anyOf: [{ type: 'string', pattern: idPattern }, { type: 'null' }],
+      },
+    },
   },
 } as const;
 export const mediaUpdateBody = {

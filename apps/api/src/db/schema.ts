@@ -27,6 +27,9 @@ export const categories = pgTable('categories', {
   name: text('name').notNull(),
   icon: text('icon').notNull(),
   sortOrder: integer('sort_order').default(0).notNull(),
+  thumbnailMediaId: uuid('thumbnail_media_id').references(() => mediaItems.id, {
+    onDelete: 'set null',
+  }),
   ...timestamps,
 });
 

@@ -19,3 +19,10 @@ El video YouTube de prueba es `jNQXAC9IVRw`. Se verificó extracción y descarga
 - `pnpm typecheck`, `pnpm lint` y `pnpm format:check`: correctos. API, contratos y frontend compilados en `/tmp`, sin reemplazar la versión que sirve la instancia instalada.
 - Brave Work, escritorio: formulario Playlist, envío sin categoría y con categoría/visibilidad seleccionadas, confirmación y estado de preparación. API simulada para esta prueba visual; no se descargó una playlist real. La captura móvil no pudo completarse por timeout del navegador; tamaño restaurado.
 - La aprobación de una playlist autoriza sus videos actuales como lote. No suscribe automáticamente videos futuros. Para activar el cambio en una instalación existente, aplicar migraciones, compilar y reiniciar.
+
+## Portadas de categorías — 1 de octubre de 2026
+
+- Suite API: 10 pruebas aprobadas con PostgreSQL en schemas temporales. Cubre portada automática, selección manual, reset, primer video sin thumbnail, selección ajena/inexistente, video oculto/no disponible, desasignación y eliminación de la selección.
+- TypeScript, lint, formato de archivos modificados y build: correctos.
+- Brave Work, escritorio, API ficticia aislada: selección y persistencia de otro video, imagen en listado infantil, fallback a emoji y etiqueta automática. Captura móvil bloqueada por timeout; tamaño restaurado.
+- Migración nueva: `0002_category_thumbnails.sql`. Instancia existente requiere `pnpm db:migrate` y reinicio para activar backend actualizado. No se aplicó migración ni reinició servicio durante esta validación.

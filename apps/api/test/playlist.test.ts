@@ -27,7 +27,11 @@ test('playlist imports persist extraction, preserve categories, and retry member
   try {
     await sql.unsafe(`CREATE SCHEMA "${schemaName}"`);
     await sql.unsafe(`SET search_path TO "${schemaName}"`);
-    for (const migration of ['0000_init.sql', '0001_playlist_imports.sql'])
+    for (const migration of [
+      '0000_init.sql',
+      '0001_playlist_imports.sql',
+      '0002_category_thumbnails.sql',
+    ])
       await sql.unsafe(
         await readFile(
           new URL(`../migrations/${migration}`, import.meta.url),

@@ -4,37 +4,46 @@ import {
   Alert,
   Box,
   Button,
+  MenuItem,
   Paper,
   Stack,
   TextField,
   Typography,
 } from '@mui/material';
-import type { Category, CategoryInput } from '@wawatube/shared';
+import type { AdminMedia, Category, CategoryInput } from '@wawatube/shared';
 import { api, errorText } from '../../api';
 import { EmptyState } from '../../components/Shared';
+
+const automaticThumbnailValue = '__automatic__';
 
 export function AdminCategories() {
   const { t } = useTranslation();
   const [categories, setCategories] = useState<Category[]>([]);
+  const [media, setMedia] = useState<AdminMedia[]>([]);
   const [editing, setEditing] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [icon, setIcon] = useState('✨');
   const [sortOrder, setSortOrder] = useState('0');
+  const [thumbnailMediaId, setThumbnailMediaId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const load = () => {
     setError(null);
-    void api
-      .categories()
-      .then(setCategories)
+    void Promise.all([api.categories(), api.adminMedia()])
+      .then(([categoryData, library]) => {
+        setCategories(categoryData);
+        setMedia(library.media);
+      })
       .catch((reason: unknown) => setError(errorText(reason, t)));
   };
   useEffect(() => {
     let active = true;
-    void api
-      .categories()
-      .then((data) => {
-        if (active) setCategories(data);
+    void Promise.all([api.categories(), api.adminMedia()])
+      .then(([categoryData, library]) => {
+        if (active) {
+          setCategories(categoryData);
+          setMedia(library.media);
+        }
       })
       .catch((reason: unknown) => {
         if (active) setError(errorText(reason, t));
@@ -48,6 +57,7 @@ export function AdminCategories() {
     setName('');
     setIcon('✨');
     setSortOrder('0');
+    setThumbnailMediaId(null);
   };
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -57,6 +67,7 @@ export function AdminCategories() {
       name: name.trim(),
       icon: icon.trim(),
       sortOrder: Number(sortOrder) || 0,
+      thumbnailMediaId: effectiveThumbnailMediaId,
     };
     try {
       if (editing) await api.updateCategory(editing, input);
@@ -74,7 +85,33 @@ export function AdminCategories() {
     setName(category.name);
     setIcon(category.icon);
     setSortOrder(String(category.sortOrder));
+    setThumbnailMediaId(category.thumbnailMediaId);
   };
+  const eligibleMedia = editing
+    ? media
+        .filter(
+          (item) =>
+            item.categoryIds.includes(editing) &&
+            item.visible &&
+            item.availability === 'AVAILABLE',
+        )
+        .sort(
+          (left, right) =>
+            left.sortOrder - right.sortOrder ||
+            left.title.localeCompare(right.title),
+        )
+    : [];
+  const thumbnailOptions = eligibleMedia.filter(
+    (item) => item.thumbnailUrl !== null,
+  );
+  const selectedThumbnail = thumbnailOptions.find(
+    (item) => item.id === thumbnailMediaId,
+  );
+  const autoThumbnail = eligibleMedia[0];
+  const effectiveThumbnailMediaId = selectedThumbnail?.id ?? null;
+  const previewThumbnailUrl =
+    selectedThumbnail?.thumbnailUrl ?? autoThumbnail?.thumbnailUrl;
+  const previewTitle = selectedThumbnail?.title ?? autoThumbnail?.title;
   const remove = async (id: string) => {
     setBusy(true);
     setError(null);
@@ -132,6 +169,43 @@ export function AdminCategories() {
               onChange={(event) => setSortOrder(event.target.value)}
             />
           </Box>
+          <TextField
+            select
+            label={t('parent.categoryThumbnail')}
+            value={effectiveThumbnailMediaId ?? automaticThumbnailValue}
+            onChange={(event) =>
+              setThumbnailMediaId(
+                event.target.value === automaticThumbnailValue
+                  ? null
+                  : event.target.value,
+              )
+            }
+          >
+            <MenuItem value={automaticThumbnailValue}>
+              {t('parent.categoryThumbnailAutomatic')}
+            </MenuItem>
+            {thumbnailOptions.map((item) => (
+              <MenuItem key={item.id} value={item.id}>
+                {item.title}
+              </MenuItem>
+            ))}
+          </TextField>
+          {previewThumbnailUrl ? (
+            <Box
+              component="img"
+              src={previewThumbnailUrl}
+              alt={t('a11y.categoryThumbnail', {
+                title: previewTitle ?? t('parent.categoryThumbnail'),
+              })}
+              sx={{
+                width: '100%',
+                maxWidth: 480,
+                aspectRatio: '16 / 9',
+                objectFit: 'cover',
+                borderRadius: 2,
+              }}
+            />
+          ) : null}
           <Stack direction="row" spacing={1}>
             <Button
               type="submit"

@@ -110,63 +110,77 @@ function CategoryCard({
   category: Category;
   index: number;
 }) {
-  const { t } = useTranslation();
   const theme = useTheme();
   const colors =
     theme.palette.mode === 'dark'
       ? ['#3b3033', '#29403f', '#293d4b', '#4a3e2d']
       : ['#f8d8c4', '#dcebdc', '#d9e6f3', '#f1e2ba'];
   return (
-    <Card
-      sx={{
-        backgroundColor: colors[index % colors.length],
-        minHeight: 190,
-        height: '100%',
-        display: 'flex',
-      }}
-    >
+    <Card sx={{ backgroundColor: colors[index % colors.length] }}>
       <CardActionArea
         component={Link}
         to={`/category/${category.id}`}
-        sx={{ height: '100%', p: 1, display: 'flex', alignItems: 'stretch' }}
+        sx={{ position: 'relative', aspectRatio: '16 / 9', minHeight: 190 }}
       >
-        <CardContent
+        <CategoryThumbnail
+          category={category}
+          key={category.thumbnailUrl ?? 'emoji'}
+        />
+        <Box
           sx={{
-            display: 'flex',
-            height: '100%',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
+            position: 'absolute',
+            inset: 'auto 0 0',
+            pt: 5,
+            px: 2.5,
+            pb: 2,
+            background: 'linear-gradient(transparent, rgba(0, 0, 0, 0.8))',
           }}
         >
           <Typography
-            component="span"
-            aria-label={t('a11y.categoryIcon')}
-            sx={{ fontSize: '3.4rem' }}
+            variant="h4"
+            sx={{ color: '#fff', fontWeight: 800, overflowWrap: 'anywhere' }}
           >
-            {category.icon || '✨'}
+            {category.name}
           </Typography>
-          <Stack
-            direction="row"
-            justifyContent="space-between"
-            alignItems="end"
-            spacing={1}
-          >
-            <Typography
-              variant="h4"
-              sx={{ fontWeight: 800, overflowWrap: 'anywhere' }}
-            >
-              {category.name}
-            </Typography>
-            <Typography aria-hidden sx={{ fontSize: '1.8rem' }}>
-              →
-            </Typography>
-          </Stack>
-          <Typography variant="body2" sx={{ mt: 1 }}>
-            {t('child.openCategory')}
-          </Typography>
-        </CardContent>
+        </Box>
       </CardActionArea>
     </Card>
+  );
+}
+
+function CategoryThumbnail({ category }: { category: Category }) {
+  const { t } = useTranslation();
+  const [failed, setFailed] = useState(false);
+  if (!category.thumbnailUrl || failed) {
+    return (
+      <Typography
+        component="span"
+        aria-label={t('a11y.categoryIcon')}
+        sx={{
+          fontSize: '3.4rem',
+          display: 'block',
+          textAlign: 'center',
+          pb: 5,
+        }}
+      >
+        {category.icon || '✨'}
+      </Typography>
+    );
+  }
+  return (
+    <Box
+      component="img"
+      src={category.thumbnailUrl}
+      alt={t('a11y.categoryThumbnail', { title: category.name })}
+      onError={() => setFailed(true)}
+      sx={{
+        position: 'absolute',
+        inset: 0,
+        width: '100%',
+        height: '100%',
+        objectFit: 'cover',
+      }}
+    />
   );
 }
 

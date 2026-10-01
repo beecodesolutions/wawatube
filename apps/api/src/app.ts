@@ -145,7 +145,7 @@ export function createApp(options: AppOptions): FastifyInstance {
   registerAuthRoutes(app, db, config);
   app.get('/api/health', async () => ({ status: 'ok' }));
 
-  app.get('/api/kids/categories', () => library.categories());
+  app.get('/api/kids/categories', () => library.categories(false));
   app.get<{ Params: { id: string } }>(
     '/api/kids/categories/:id/media',
     { schema: idParams },

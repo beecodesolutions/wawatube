@@ -63,6 +63,8 @@ const resources = {
         categoryName: 'Nombre',
         categoryIcon: 'Ícono',
         categoryOrder: 'Orden',
+        categoryThumbnail: 'Portada de categoría',
+        categoryThumbnailAutomatic: 'Automática (primer video disponible)',
         newCategory: 'Nueva categoría',
         noCategories: 'Todavía no creaste categorías.',
         noMedia: 'Todavía no hay videos registrados.',
@@ -195,6 +197,7 @@ const resources = {
       },
       a11y: {
         categoryIcon: 'Ícono de categoría',
+        categoryThumbnail: 'Portada de categoría {{title}}',
         thumbnail: 'Portada de {{title}}',
         editMedia: 'Editar {{title}}',
         toggleVisibility: 'Cambiar visibilidad de {{title}}',

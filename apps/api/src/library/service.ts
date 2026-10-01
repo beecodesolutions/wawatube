@@ -1,4 +1,4 @@
-import { asc, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray } from 'drizzle-orm';
 import type {
   AdminMedia,
   Category,
@@ -20,14 +20,12 @@ import {
 import { ApiFailure } from '../http/errors.js';
 import { childMedia, type MediaGateway } from '../media-gateway.js';
 
+type CategoryThumbnail = Pick<Category, 'thumbnailMediaId' | 'thumbnailUrl'> & {
+  selectedVisible: boolean;
+};
+
 export const sourceType = (value: string): SourceType =>
   value === 'LOCAL' ? 'LOCAL' : 'YOUTUBE';
-export const categoryDto = (row: typeof categories.$inferSelect): Category => ({
-  id: row.id,
-  name: row.name,
-  icon: row.icon,
-  sortOrder: row.sortOrder,
-});
 export const importDto = (row: typeof imports.$inferSelect) => ({
   id: row.id,
   sourceType: sourceType(row.sourceType),
@@ -61,6 +59,83 @@ export class LibraryService {
     private readonly media: MediaGateway,
   ) {}
 
+  private async categoryThumbnail(
+    categoryId: string,
+    selectedMediaId: string | null,
+  ): Promise<CategoryThumbnail> {
+    const rows = await this.db
+      .select({ media: mediaItems })
+      .from(mediaCategories)
+      .innerJoin(mediaItems, eq(mediaCategories.mediaItemId, mediaItems.id))
+      .where(eq(mediaCategories.categoryId, categoryId))
+      .orderBy(asc(mediaItems.sortOrder), asc(mediaItems.title));
+    const selected = selectedMediaId
+      ? rows.find(({ media }) => media.id === selectedMediaId)?.media
+      : undefined;
+    const selectedVisible = selected
+      ? await this.childVisible(selected)
+      : false;
+    let effective =
+      selectedVisible && selected?.thumbnailRef ? selected : undefined;
+    if (!effective) {
+      for (const { media } of rows) {
+        if (media.id === selected?.id) {
+          if (selectedVisible) effective = media;
+        } else if (await this.childVisible(media)) {
+          effective = media;
+        }
+        if (effective) break;
+      }
+    }
+    return {
+      thumbnailMediaId: selectedMediaId,
+      thumbnailUrl: effective?.thumbnailRef
+        ? `/api/kids/media/${effective.id}/thumbnail`
+        : null,
+      selectedVisible: selectedVisible && Boolean(selected?.thumbnailRef),
+    };
+  }
+
+  private async categoryDto(
+    row: typeof categories.$inferSelect,
+    exposeSelection = true,
+  ): Promise<Category> {
+    const thumbnail = await this.categoryThumbnail(
+      row.id,
+      row.thumbnailMediaId,
+    );
+    return {
+      id: row.id,
+      name: row.name,
+      icon: row.icon,
+      sortOrder: row.sortOrder,
+      thumbnailMediaId:
+        exposeSelection || thumbnail.selectedVisible
+          ? thumbnail.thumbnailMediaId
+          : null,
+      thumbnailUrl: thumbnail.thumbnailUrl,
+    };
+  }
+
+  private async assertThumbnailMedia(
+    queryable: Pick<Database, 'select'>,
+    categoryId: string,
+    mediaId: string,
+  ): Promise<void> {
+    const [row] = await queryable
+      .select({ id: mediaItems.id, thumbnailRef: mediaItems.thumbnailRef })
+      .from(mediaCategories)
+      .innerJoin(mediaItems, eq(mediaCategories.mediaItemId, mediaItems.id))
+      .where(
+        and(
+          eq(mediaCategories.categoryId, categoryId),
+          eq(mediaItems.id, mediaId),
+        ),
+      )
+      .limit(1);
+    if (!row?.thumbnailRef) throw new ApiFailure(400, 'INVALID_REQUEST');
+  }
+
   async categoryIds(ids: string[]): Promise<void> {
     if (new Set(ids).size !== ids.length)
       throw new ApiFailure(400, 'INVALID_CATEGORY_IDS');
@@ -73,13 +148,14 @@ export class LibraryService {
       throw new ApiFailure(400, 'CATEGORY_NOT_FOUND');
   }
 
-  async categories(): Promise<Category[]> {
-    return (
-      await this.db
-        .select()
-        .from(categories)
-        .orderBy(asc(categories.sortOrder), asc(categories.name))
-    ).map(categoryDto);
+  async categories(exposeSelection = true): Promise<Category[]> {
+    const rows = await this.db
+      .select()
+      .from(categories)
+      .orderBy(asc(categories.sortOrder), asc(categories.name));
+    return Promise.all(
+      rows.map((row) => this.categoryDto(row, exposeSelection)),
+    );
   }
   async categoryMedia(
     id: string,
@@ -103,7 +179,10 @@ export class LibraryService {
         ),
       )
     ).filter((item): item is ChildMedia => item !== null);
-    return { category: categoryDto(category), media: visible };
+    return {
+      category: await this.categoryDto(category, false),
+      media: visible,
+    };
   }
   async childVisible(row: MediaRow): Promise<boolean> {
     return (
@@ -215,28 +294,37 @@ export class LibraryService {
     const name = body.name.trim();
     const icon = body.icon.trim();
     if (!name || !icon) throw new ApiFailure(400, 'INVALID_REQUEST');
+    if (body.thumbnailMediaId) throw new ApiFailure(400, 'INVALID_REQUEST');
     const [row] = await this.db
       .insert(categories)
       .values({ name, icon, sortOrder: body.sortOrder ?? 0 })
       .returning();
-    return categoryDto(row!);
+    return this.categoryDto(row!);
   }
   async updateCategory(id: string, body: CategoryInput): Promise<Category> {
     const name = body.name.trim();
     const icon = body.icon.trim();
     if (!name || !icon) throw new ApiFailure(400, 'INVALID_REQUEST');
-    const [row] = await this.db
-      .update(categories)
-      .set({
-        name,
-        icon,
-        sortOrder: body.sortOrder ?? 0,
-        updatedAt: new Date(),
-      })
-      .where(eq(categories.id, id))
-      .returning();
-    if (!row) throw new ApiFailure(404, 'CATEGORY_NOT_FOUND');
-    return categoryDto(row);
+    const row = await this.db.transaction(async (tx) => {
+      if (body.thumbnailMediaId)
+        await this.assertThumbnailMedia(tx, id, body.thumbnailMediaId);
+      const [updated] = await tx
+        .update(categories)
+        .set({
+          name,
+          icon,
+          sortOrder: body.sortOrder ?? 0,
+          ...(body.thumbnailMediaId === undefined
+            ? {}
+            : { thumbnailMediaId: body.thumbnailMediaId }),
+          updatedAt: new Date(),
+        })
+        .where(eq(categories.id, id))
+        .returning();
+      if (!updated) throw new ApiFailure(404, 'CATEGORY_NOT_FOUND');
+      return updated;
+    });
+    return this.categoryDto(row);
   }
   async deleteCategory(id: string): Promise<void> {
     await this.db.delete(categories).where(eq(categories.id, id));
