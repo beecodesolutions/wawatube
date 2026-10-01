@@ -28,6 +28,7 @@ import { useTheme } from '@mui/material/styles';
 import type { Category, ChildMedia } from '@wawatube/shared';
 import { api, errorText } from '../../api';
 import {
+  ChildBrand,
   ChildFrame,
   EmptyState,
   ErrorState,
@@ -125,20 +126,28 @@ export function ChildHome() {
 
   return (
     <ChildFrame>
-      <Container maxWidth="lg" sx={{ py: { xs: 4, md: 8 } }}>
-        <Stack spacing={1} sx={{ mb: { xs: 4, md: 6 }, maxWidth: 680 }}>
+      <Container
+        maxWidth="xl"
+        sx={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          py: { xs: 3, md: 5 },
+        }}
+      >
+        <Stack
+          direction="row"
+          spacing={2}
+          alignItems="center"
+          sx={{ width: '100%', maxWidth: 1200, mx: 'auto', mb: { xs: 4, md: 6 } }}
+        >
+          <ChildBrand />
           <Typography
             variant="h1"
             sx={{ fontSize: { xs: '2.5rem', md: '4.4rem' }, lineHeight: 1 }}
           >
             {t('app.greeting')}
-          </Typography>
-          <Typography
-            variant="h5"
-            color="text.secondary"
-            sx={{ fontWeight: 600 }}
-          >
-            {t('app.subtitle')}
           </Typography>
         </Stack>
         {error ? (
@@ -152,9 +161,12 @@ export function ChildHome() {
           <Box
             sx={{
               display: 'grid',
+              width: '100%',
+              maxWidth: 1200,
+              mx: 'auto',
               gridTemplateColumns:
-                'repeat(auto-fit, minmax(min(100%, 230px), 1fr))',
-              gap: 2.5,
+                'repeat(auto-fill, minmax(min(100%, 320px), 1fr))',
+              gap: 3,
             }}
           >
             {categories?.map((category, index) => (
@@ -295,7 +307,7 @@ export function ChildCategory() {
 
   return (
     <ChildFrame>
-      <Container maxWidth="lg" sx={{ py: { xs: 3, md: 6 } }}>
+      <Container maxWidth="lg" sx={{ py: { xs: 3, md: 5 } }}>
         <BackButton />
         {error ? (
           <ErrorState message={error} retry={load} childFriendly />
@@ -319,8 +331,8 @@ export function ChildCategory() {
                 sx={{
                   display: 'grid',
                   gridTemplateColumns:
-                    'repeat(auto-fill, minmax(min(100%, 270px), 1fr))',
-                  gap: 2.5,
+                    'repeat(auto-fill, minmax(min(100%, 320px), 1fr))',
+                  gap: 3,
                 }}
               >
                 {result.media.map((media) => (
@@ -501,7 +513,7 @@ export function ChildPlayer() {
 
   return (
     <ChildFrame>
-      <Container maxWidth="lg" sx={{ py: { xs: 3, md: 6 } }}>
+      <Container maxWidth="xl" sx={{ py: { xs: 3, md: 5 } }}>
         <BackButton to={backTo} />
         {error ? (
           <ErrorState message={error} retry={load} childFriendly />

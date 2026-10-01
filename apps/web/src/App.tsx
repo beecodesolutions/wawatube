@@ -6,13 +6,13 @@ import {
   ChildPlayerRoute,
 } from './features/child/ChildRoutes';
 import { ParentApp } from './features/parent/ParentRoutes';
-import { theme } from './theme';
+import { childTheme, parentTheme } from './theme';
 
 export function App() {
   const parent = useLocation().pathname.startsWith('/parent');
   return (
-    <ThemeProvider theme={theme} defaultMode="system">
-      <CssBaseline enableColorScheme />
+    <ThemeProvider theme={parent ? parentTheme : childTheme}>
+      <CssBaseline />
       <Box
         key={parent ? 'parent' : 'child'}
         sx={{

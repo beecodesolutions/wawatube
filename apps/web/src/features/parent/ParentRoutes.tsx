@@ -16,7 +16,7 @@ import {
   useNavigate,
 } from 'react-router-dom';
 import { api, subscribeUnauthorized } from '../../api';
-import { ParentBrand, ThemeToggle } from '../../components/Shared';
+import { ParentBrand } from '../../components/Shared';
 import { AdminLibrary } from './ParentLibrary';
 import { AdminCategories } from './ParentCategories';
 import { ParentLogin } from './ParentLogin';
@@ -126,9 +126,6 @@ function ParentFrame({
         <Toolbar sx={{ gap: 2, flexWrap: 'wrap', py: 1 }}>
           <Box sx={{ flex: 1, minWidth: 'min(100%, 180px)' }}>
             <ParentBrand />
-          </Box>
-          <Box sx={{ order: { xs: 1, sm: 2 }, display: 'flex' }}>
-            <ThemeToggle />
           </Box>
           <Box
             sx={{

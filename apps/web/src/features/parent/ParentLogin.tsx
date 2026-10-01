@@ -11,7 +11,7 @@ import {
   Typography,
 } from '@mui/material';
 import { api, errorText } from '../../api';
-import { ParentBrand, ThemeToggle } from '../../components/Shared';
+import { ParentBrand } from '../../components/Shared';
 
 export function ParentLogin({ onLoggedIn }: { onLoggedIn: () => void }) {
   const { t } = useTranslation();
@@ -56,7 +56,6 @@ export function ParentLogin({ onLoggedIn }: { onLoggedIn: () => void }) {
         }}
       >
         <ParentBrand />
-        <ThemeToggle />
       </Stack>
       <Box
         sx={{ flex: 1, width: '100%', display: 'grid', placeItems: 'center' }}

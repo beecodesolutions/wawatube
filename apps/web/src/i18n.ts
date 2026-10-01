@@ -7,7 +7,6 @@ const resources = {
       app: {
         name: 'Wawatube',
         greeting: '¡Hola!',
-        subtitle: '¿Qué querés mirar?',
       },
       nav: {
         home: 'Inicio',
@@ -18,10 +17,6 @@ const resources = {
         library: 'Biblioteca',
         categories: 'Categorías',
         logout: 'Cerrar sesión',
-      },
-      theme: {
-        useLight: 'Usar tema claro',
-        useDark: 'Usar tema oscuro',
       },
       common: {
         loading: 'Cargando…',
