@@ -11,7 +11,7 @@ import {
   Typography,
 } from '@mui/material';
 import { api, errorText } from '../../api';
-import { ThemeToggle } from '../../components/Shared';
+import { ParentBrand, ThemeToggle } from '../../components/Shared';
 
 export function ParentLogin({ onLoggedIn }: { onLoggedIn: () => void }) {
   const { t } = useTranslation();
@@ -42,7 +42,22 @@ export function ParentLogin({ onLoggedIn }: { onLoggedIn: () => void }) {
         background: theme.palette.artwork.parentBackground,
       })}
     >
-      <ThemeToggle />
+      <Stack
+        direction="row"
+        justifyContent="space-between"
+        alignItems="center"
+        sx={{
+          width: 'calc(100% + 32px)',
+          mt: -2,
+          mx: -2,
+          px: 2,
+          py: 1,
+          backdropFilter: 'blur(14px)',
+        }}
+      >
+        <ParentBrand />
+        <ThemeToggle />
+      </Stack>
       <Box
         sx={{ flex: 1, width: '100%', display: 'grid', placeItems: 'center' }}
       >

@@ -16,12 +16,13 @@ import {
   useNavigate,
 } from 'react-router-dom';
 import { api, subscribeUnauthorized } from '../../api';
-import { LoadingState, ThemeToggle } from '../../components/Shared';
+import { ParentBrand, ThemeToggle } from '../../components/Shared';
 import { AdminLibrary } from './ParentLibrary';
 import { AdminCategories } from './ParentCategories';
 import { ParentLogin } from './ParentLogin';
 
 export function ParentApp() {
+  const { t } = useTranslation();
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
   useEffect(() => {
     const unsubscribe = subscribeUnauthorized(() => setAuthenticated(false));
@@ -41,18 +42,54 @@ export function ParentApp() {
   }, []);
 
   if (authenticated === null)
-    return <LoadingState label="parent.sessionLoading" />;
-  if (!authenticated)
-    return <ParentLogin onLoggedIn={() => setAuthenticated(true)} />;
+    return (
+      <Box
+        sx={{
+          minHeight: '100vh',
+          display: 'grid',
+          placeItems: 'center',
+          background: (theme) => theme.palette.artwork.parentBackground,
+        }}
+      >
+        <ParentBrand />
+        <Typography
+          sx={{
+            position: 'absolute',
+            width: 1,
+            height: 1,
+            overflow: 'hidden',
+            clip: 'rect(0, 0, 0, 0)',
+          }}
+          role="status"
+        >
+          {t('parent.sessionLoading')}
+        </Typography>
+      </Box>
+    );
   return (
-    <ParentFrame onLogout={() => setAuthenticated(false)}>
-      <Routes>
-        <Route index element={<Navigate to="library" replace />} />
-        <Route path="library" element={<AdminLibrary />} />
-        <Route path="categories" element={<AdminCategories />} />
-        <Route path="*" element={<Navigate to="library" replace />} />
-      </Routes>
-    </ParentFrame>
+    <Box
+      sx={{
+        animation: 'parentReady 180ms ease-out both',
+        '@keyframes parentReady': {
+          from: { opacity: 0 },
+          to: { opacity: 1 },
+        },
+        '@media (prefers-reduced-motion: reduce)': { animation: 'none' },
+      }}
+    >
+      {authenticated ? (
+        <ParentFrame onLogout={() => setAuthenticated(false)}>
+          <Routes>
+            <Route index element={<Navigate to="library" replace />} />
+            <Route path="library" element={<AdminLibrary />} />
+            <Route path="categories" element={<AdminCategories />} />
+            <Route path="*" element={<Navigate to="library" replace />} />
+          </Routes>
+        </ParentFrame>
+      ) : (
+        <ParentLogin onLoggedIn={() => setAuthenticated(true)} />
+      )}
+    </Box>
   );
 }
 
@@ -74,15 +111,22 @@ function ParentFrame({
     }
   };
   return (
-    <Box sx={{ minHeight: '100vh', backgroundColor: 'background.default' }}>
-      <AppBar position="sticky" color="inherit" elevation={0}>
+    <Box
+      sx={{
+        minHeight: '100vh',
+        background: (theme) => theme.palette.artwork.parentBackground,
+      }}
+    >
+      <AppBar
+        position="sticky"
+        color="transparent"
+        elevation={0}
+        sx={{ backdropFilter: 'blur(14px)' }}
+      >
         <Toolbar sx={{ gap: 2, flexWrap: 'wrap', py: 1 }}>
-          <Typography
-            variant="h6"
-            sx={{ flex: 1, minWidth: 'min(100%, 180px)', fontWeight: 900 }}
-          >
-            {t('parent.title')}
-          </Typography>
+          <Box sx={{ flex: 1, minWidth: 'min(100%, 180px)' }}>
+            <ParentBrand />
+          </Box>
           <Box sx={{ order: { xs: 1, sm: 2 }, display: 'flex' }}>
             <ThemeToggle />
           </Box>

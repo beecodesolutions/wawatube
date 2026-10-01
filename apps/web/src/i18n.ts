@@ -13,6 +13,8 @@ const resources = {
         home: 'Inicio',
         back: 'Volver',
         parent: 'Zona de adultos',
+        parentDoubleClick: 'Hacé doble clic para ir a la zona de adultos',
+        childDoubleClick: 'Hacé doble clic para volver a Wawatube',
         library: 'Biblioteca',
         categories: 'Categorías',
         logout: 'Cerrar sesión',

@@ -1,7 +1,7 @@
-import type { ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import ReplayRoundedIcon from '@mui/icons-material/ReplayRounded';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   Alert,
   AppBar,
@@ -27,6 +27,7 @@ export function ThemeToggle() {
   return (
     <Tooltip title={label}>
       <IconButton
+        color="inherit"
         onClick={() => setMode(dark ? 'light' : 'dark')}
         aria-label={label}
         sx={{ minWidth: 44, minHeight: 44 }}
@@ -41,6 +42,14 @@ export function ThemeToggle() {
 
 export function ChildFrame({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const homeClick = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (homeClick.current) clearTimeout(homeClick.current);
+    },
+    [],
+  );
   return (
     <Box
       sx={{
@@ -56,19 +65,32 @@ export function ChildFrame({ children }: { children: ReactNode }) {
       >
         <Toolbar sx={{ justifyContent: 'space-between', py: 1, gap: 2 }}>
           <Button
-            component={Link}
-            to="/"
+            onClick={() => {
+              if (homeClick.current) clearTimeout(homeClick.current);
+              homeClick.current = setTimeout(() => navigate('/'), 250);
+            }}
+            onDoubleClick={() => {
+              if (homeClick.current) clearTimeout(homeClick.current);
+              navigate('/parent');
+            }}
+            aria-label={`${t('app.name')}. ${t('nav.home')}. ${t('nav.parentDoubleClick')}`}
             color="inherit"
-            sx={{ fontSize: '1.2rem', px: 0 }}
+            sx={{ textAlign: 'left', gap: 1, px: 0 }}
           >
-            <Box
-              component="span"
-              sx={{ mr: 1, fontSize: '1.6rem' }}
-              aria-hidden
-            >
+            <Box component="span" sx={{ fontSize: '1.6rem' }} aria-hidden>
               🌈
             </Box>
-            {t('app.name')}
+            <Stack>
+              <Typography
+                variant="h6"
+                sx={{ fontWeight: 900, lineHeight: 1.2 }}
+              >
+                {t('app.name')}
+              </Typography>
+              <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                {t('app.subtitle')}
+              </Typography>
+            </Stack>
           </Button>
           <Stack direction="row" spacing={1} alignItems="center">
             <Typography
@@ -84,6 +106,45 @@ export function ChildFrame({ children }: { children: ReactNode }) {
       </AppBar>
       {children}
     </Box>
+  );
+}
+
+export function ParentBrand() {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  return (
+    <Button
+      color="inherit"
+      onDoubleClick={() => navigate('/')}
+      aria-label={`${t('app.name')}. ${t('parent.title')}. ${t('nav.childDoubleClick')}`}
+      sx={{
+        textAlign: 'left',
+        gap: 1,
+        px: 0,
+      }}
+    >
+      <Box
+        component="span"
+        aria-hidden
+        sx={{
+          fontSize: '1.6rem',
+          filter: (theme) =>
+            theme.palette.mode === 'dark'
+              ? 'grayscale(1) brightness(1.8)'
+              : 'grayscale(1) brightness(0.6)',
+        }}
+      >
+        🌈
+      </Box>
+      <Stack>
+        <Typography variant="h6" sx={{ fontWeight: 900, lineHeight: 1.2 }}>
+          {t('app.name')}
+        </Typography>
+        <Typography variant="caption" sx={{ opacity: 0.8 }}>
+          {t('parent.title')}
+        </Typography>
+      </Stack>
+    </Button>
   );
 }
 
