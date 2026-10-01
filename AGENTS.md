@@ -1,5 +1,9 @@
 # Wawatube — reglas del proyecto
 
+## Interfaz infantil
+
+- La UI infantil debe poder ser navegada por un niño que todavía no sabe leer. Usar íconos o imágenes reconocibles y botones grandes; no depender solo de texto ni de color para comunicar acciones. Conservar etiquetas accesibles para lectores de pantalla.
+
 ## Commits y entrega
 
 - Después de terminar y verificar un fix o una feature, crear el commit automáticamente, sin pedir confirmación.

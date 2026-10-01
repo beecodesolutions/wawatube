@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import {
@@ -8,6 +8,11 @@ import {
   CardActionArea,
   CardContent,
   Container,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  IconButton,
+  SvgIcon,
   Stack,
   Typography,
 } from '@mui/material';
@@ -327,8 +332,54 @@ function MediaThumbnail({ media }: { media: ChildMedia }) {
 export function ChildPlayer() {
   const { t } = useTranslation();
   const { mediaId } = useParams();
+  const playerRef = useRef<HTMLDivElement>(null);
+  const [expanded, setExpanded] = useState(false);
   const [media, setMedia] = useState<ChildMedia | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [ending, setEnding] = useState<'watching' | 'choice' | 'goodbye'>(
+    'watching',
+  );
+  useEffect(() => {
+    const syncFullscreen = () =>
+      setExpanded(
+        playerRef.current !== null &&
+          document.fullscreenElement === playerRef.current,
+      );
+    document.addEventListener('fullscreenchange', syncFullscreen);
+    return () =>
+      document.removeEventListener('fullscreenchange', syncFullscreen);
+  }, []);
+
+  useEffect(() => {
+    if (!expanded && ending === 'watching') return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const exitWithEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !document.fullscreenElement) {
+        setExpanded(false);
+      }
+    };
+    document.addEventListener('keydown', exitWithEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', exitWithEscape);
+    };
+  }, [expanded, ending]);
+
+  const toggleFullscreen = async () => {
+    if (expanded) {
+      if (document.fullscreenElement === playerRef.current) {
+        await document.exitFullscreen().catch(() => {});
+      } else {
+        setExpanded(false);
+      }
+      return;
+    }
+    setExpanded(true);
+    // Keep video and overlay in one fullscreen element; ending must not exit it.
+    // Browsers without element fullscreen keep the same layout within the window.
+    await playerRef.current?.requestFullscreen?.().catch(() => {});
+  };
   const load = () => {
     if (!mediaId) return;
     setError(null);
@@ -379,20 +430,155 @@ export function ChildPlayer() {
               {media.title}
             </Typography>
             <Box
-              component="video"
-              src={media.playbackUrl}
-              poster={media.thumbnailUrl ?? undefined}
-              controls
-              playsInline
-              aria-label={t('child.playerLabel')}
-              onError={() => setError(t('child.playerError'))}
+              ref={playerRef}
               sx={{
-                width: '100%',
-                maxHeight: '72vh',
-                borderRadius: '16px',
+                position: expanded ? 'fixed' : 'relative',
+                ...(expanded && {
+                  inset: 0,
+                  '&&': { margin: 0 },
+                  zIndex: (theme) => theme.zIndex.modal + 1,
+                  height: '100dvh',
+                }),
                 backgroundColor: '#17232a',
+                borderRadius: expanded ? 0 : '16px',
+                overflow: 'hidden',
               }}
-            />
+            >
+              <Box
+                component="video"
+                src={media.playbackUrl}
+                poster={media.thumbnailUrl ?? undefined}
+                controls
+                controlsList="nofullscreen"
+                playsInline
+                onEnded={() => setEnding('choice')}
+                aria-label={t('child.playerLabel')}
+                onError={() => setError(t('child.playerError'))}
+                sx={{
+                  display: 'block',
+                  width: '100%',
+                  height: expanded ? '100%' : 'auto',
+                  maxHeight: expanded ? 'none' : '72vh',
+                  '&::-webkit-media-controls-fullscreen-button': {
+                    display: 'none',
+                  },
+                }}
+              />
+              {ending === 'watching' && (
+                <IconButton
+                  onClick={() => void toggleFullscreen()}
+                  aria-label={t(
+                    expanded ? 'child.exitFullscreen' : 'child.fullscreen',
+                  )}
+                  sx={{
+                    position: 'absolute',
+                    top: 12,
+                    right: 12,
+                    width: 56,
+                    height: 56,
+                    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+                    color: '#fff',
+                    '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.85)' },
+                  }}
+                >
+                  <SvgIcon aria-hidden sx={{ fontSize: 32 }}>
+                    <path
+                      d={
+                        expanded
+                          ? 'M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z'
+                          : 'M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z'
+                      }
+                    />
+                  </SvgIcon>
+                </IconButton>
+              )}
+              <Dialog
+                open={ending !== 'watching'}
+                fullScreen
+                container={() => playerRef.current}
+                disableEscapeKeyDown
+                aria-labelledby="video-ending-title"
+                slotProps={{
+                  paper: {
+                    sx: {
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      textAlign: 'center',
+                      p: 3,
+                    },
+                  },
+                }}
+              >
+                <DialogTitle
+                  id="video-ending-title"
+                  sx={{
+                    fontSize: { xs: '2rem', sm: '3.5rem' },
+                    fontWeight: 800,
+                  }}
+                >
+                  {t(
+                    ending === 'goodbye'
+                      ? 'child.goodbye'
+                      : 'child.watchAnother',
+                  )}
+                </DialogTitle>
+                <DialogContent
+                  sx={{ flex: '0 0 auto', width: '100%', maxWidth: 600 }}
+                >
+                  {ending === 'choice' ? (
+                    <Stack direction="row" spacing={3}>
+                      <Button
+                        autoFocus
+                        component={Link}
+                        to="/"
+                        replace
+                        variant="contained"
+                        aria-label={t('common.yes')}
+                        sx={{
+                          flex: 1,
+                          minWidth: 0,
+                          minHeight: 112,
+                          backgroundColor: '#2e7d32',
+                          color: '#fff',
+                          '&:hover': { backgroundColor: '#1b5e20' },
+                        }}
+                      >
+                        <SvgIcon aria-hidden sx={{ fontSize: 72 }}>
+                          <path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+                        </SvgIcon>
+                      </Button>
+                      <Button
+                        variant="contained"
+                        aria-label={t('common.no')}
+                        onClick={() => setEnding('goodbye')}
+                        sx={{
+                          flex: 1,
+                          minWidth: 0,
+                          minHeight: 112,
+                          backgroundColor: '#c62828',
+                          color: '#fff',
+                          '&:hover': { backgroundColor: '#b71c1c' },
+                        }}
+                      >
+                        <SvgIcon aria-hidden sx={{ fontSize: 72 }}>
+                          <path d="m18.3 5.71-1.41-1.42L12 9.17 7.11 4.29 5.7 5.71 10.59 10.6 5.7 15.49l1.41 1.42L12 12.01l4.89 4.9 1.41-1.42-4.89-4.89z" />
+                        </SvgIcon>
+                      </Button>
+                    </Stack>
+                  ) : (
+                    <Typography
+                      component="p"
+                      tabIndex={-1}
+                      ref={(node: HTMLParagraphElement | null) => node?.focus()}
+                      aria-label={t('child.goodbye')}
+                      sx={{ fontSize: '5rem', outline: 'none' }}
+                    >
+                      <span aria-hidden>👋</span>
+                    </Typography>
+                  )}
+                </DialogContent>
+              </Dialog>
+            </Box>
           </Stack>
         ) : null}
       </Container>

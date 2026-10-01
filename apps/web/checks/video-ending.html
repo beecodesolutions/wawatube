@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Comprobar final de video</title>
+  </head>
+  <body>
+    <!-- Development-only check: pnpm --filter @wawatube/web dev, then open
+         /checks/video-ending.html. No API writes or real library required. -->
+    <label
+      ><input id="fullscreen" type="checkbox" /> Exigir fullscreen nativo</label
+    >
+    <label
+      ><input id="simulate" type="checkbox" checked /> Simular API fullscreen
+      (sin dispositivo)</label
+    >
+    <button id="check" disabled>Comprobar final de video</button>
+    <button id="preview">Ver overlay</button>
+    <output id="result" aria-live="polite"></output>
+    <div id="root"></div>
+    <script type="module">
+      import React from 'react';
+      import { createRoot } from 'react-dom/client';
+      import { MemoryRouter } from 'react-router-dom';
+      import { App } from '../src/App.tsx';
+      import { api } from '../src/api.ts';
+      import '../src/i18n.ts';
+
+      api.childMedia = async () => ({
+        id: 'check',
+        title: 'Video de prueba',
+        playbackUrl: '',
+        thumbnailUrl: null,
+        durationSeconds: 1,
+      });
+      api.childCategories = async () => [];
+      const root = createRoot(document.getElementById('root'));
+      let mount = 0;
+      const render = () =>
+        root.render(
+          React.createElement(
+            MemoryRouter,
+            { key: mount++, initialEntries: ['/watch/check'] },
+            React.createElement(App),
+          ),
+        );
+      const waitFor = async (read) => {
+        for (let i = 0; i < 100; i++) {
+          const value = read();
+          if (value) return value;
+          await new Promise((resolve) => setTimeout(resolve, 30));
+        }
+        throw new Error('Timeout: ' + read);
+      };
+      const assert = (condition, message) => {
+        if (!condition) throw new Error(message);
+      };
+      const choice = () => document.querySelector('[role="dialog"]');
+      const yes = () => choice()?.querySelector('a');
+      const no = () => choice()?.querySelector('button');
+      render();
+      await waitFor(() => document.querySelector('video'));
+      document.getElementById('preview').onclick = () =>
+        document.querySelector('video')?.dispatchEvent(new Event('ended'));
+      document.getElementById('check').disabled = false;
+      document.getElementById('check').onclick = async () => {
+        const originalExit = document.exitFullscreen;
+        let simulatedElement = null;
+        const simulate = document.getElementById('simulate').checked;
+        let exitCalls = 0;
+        try {
+          const video = document.querySelector('video');
+          const player = video.parentElement;
+          const fullscreen =
+            document.getElementById('fullscreen').checked && !simulate;
+          if (simulate) {
+            Object.defineProperty(document, 'fullscreenElement', {
+              configurable: true,
+              get: () =>
+                simulatedElement?.isConnected ? simulatedElement : null,
+            });
+            player.requestFullscreen = async () => {
+              simulatedElement = player;
+              document.dispatchEvent(new Event('fullscreenchange'));
+            };
+            document.exitFullscreen = async () => {
+              exitCalls++;
+              simulatedElement = null;
+              document.dispatchEvent(new Event('fullscreenchange'));
+            };
+          }
+          document
+            .querySelector('button[aria-label="Pantalla completa"]')
+            .click();
+          await waitFor(() =>
+            document.querySelector(
+              'button[aria-label="Salir de pantalla completa"]',
+            ),
+          );
+          if (fullscreen || simulate) {
+            await waitFor(() => document.fullscreenElement === player);
+          }
+          const fullscreenBefore = document.fullscreenElement;
+          const boundsBefore = player.getBoundingClientRect();
+          video.dispatchEvent(new Event('ended'));
+          await waitFor(() => yes() && no());
+          await waitFor(() => yes().getBoundingClientRect().height >= 111.5);
+          assert(
+            document.fullscreenElement === fullscreenBefore,
+            'Ending preserves fullscreen',
+          );
+          assert(exitCalls === 0, 'Ending never requests fullscreen exit');
+          assert(
+            player.contains(choice()),
+            'Overlay belongs to fullscreen container',
+          );
+          const boundsAfter = player.getBoundingClientRect();
+          assert(
+            boundsBefore.width === boundsAfter.width &&
+              boundsBefore.height === boundsAfter.height,
+            'Ending preserves player dimensions',
+          );
+          assert(
+            choice().textContent.includes('¿Quieres ver otro?'),
+            'Question',
+          );
+          assert(
+            yes().getAttribute('aria-label') === 'Sí' &&
+              no().getAttribute('aria-label') === 'No',
+            'Accessible choices',
+          );
+          assert(
+            yes().querySelector('svg') && no().querySelector('svg'),
+            'Pictorial choices',
+          );
+          assert(
+            getComputedStyle(yes()).backgroundColor === 'rgb(46, 125, 50)',
+            'Green Yes',
+          );
+          assert(
+            getComputedStyle(no()).backgroundColor === 'rgb(198, 40, 40)',
+            'Red No',
+          );
+          assert(
+            yes().getBoundingClientRect().height >= 111.5,
+            'Large Yes target',
+          );
+          assert(
+            no().getBoundingClientRect().height >= 111.5,
+            'Large No target',
+          );
+          yes().click();
+          await waitFor(
+            () => document.querySelector('h1')?.textContent === '¡Hola!',
+          );
+          assert(
+            !document.querySelector('video'),
+            'Yes leaves player for home',
+          );
+
+          render();
+          const nextVideo = await waitFor(() =>
+            document.querySelector('video'),
+          );
+          assert(!choice(), 'Fresh player clears ending state');
+          nextVideo.dispatchEvent(new Event('ended'));
+          await waitFor(no);
+          no().click();
+          await waitFor(() =>
+            choice()?.textContent.includes('Hasta la próxima'),
+          );
+          assert(!yes() && !no(), 'Goodbye has no browsing actions');
+          assert(
+            choice().contains(document.activeElement),
+            'Focus stays in goodbye',
+          );
+          document.title =
+            'PASS: íconos, contenedor estable, Sí, No y reinicio' +
+            (simulate
+              ? ' (API fullscreen simulada)'
+              : fullscreen
+                ? ' (fullscreen nativo)'
+                : ' (modo ventana)');
+          document.getElementById('result').textContent = document.title;
+        } catch (error) {
+          document.title = 'FAIL: ' + error.message;
+          document.getElementById('result').textContent = document.title;
+          console.error(error);
+        } finally {
+          if (simulate) {
+            delete document.fullscreenElement;
+            document.exitFullscreen = originalExit;
+          }
+        }
+      };
+    </script>
+  </body>
+</html>

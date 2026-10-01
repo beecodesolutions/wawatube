@@ -44,6 +44,10 @@ const resources = {
         play: 'Reproducir',
         noThumbnail: 'Sin portada',
         playerLabel: 'Reproductor de video',
+        fullscreen: 'Pantalla completa',
+        exitFullscreen: 'Salir de pantalla completa',
+        watchAnother: '¿Quieres ver otro?',
+        goodbye: 'Hasta la próxima',
         unavailable: 'Este video no está disponible.',
         playerError:
           'No pudimos reproducir este video. Probá con otro formato compatible.',

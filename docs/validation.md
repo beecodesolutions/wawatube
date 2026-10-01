@@ -26,3 +26,11 @@ El video YouTube de prueba es `jNQXAC9IVRw`. Se verificó extracción y descarga
 - TypeScript, lint, formato de archivos modificados y build: correctos.
 - Brave Work, escritorio, API ficticia aislada: selección y persistencia de otro video, imagen en listado infantil, fallback a emoji y etiqueta automática. Captura móvil bloqueada por timeout; tamaño restaurado.
 - Migración nueva: `0002_category_thumbnails.sql`. Instancia existente requiere `pnpm db:migrate` y reinicio para activar backend actualizado. No se aplicó migración ni reinició servicio durante esta validación.
+
+## Final de video — 1 de octubre de 2026
+
+- `pnpm --filter @wawatube/web typecheck`, ESLint y Prettier de archivos modificados: correctos. Build Vite en `/tmp`, sin reemplazar instancia instalada.
+- Comprobación reproducible: ejecutar `pnpm --filter @wawatube/web dev`, abrir `/checks/video-ending.html` y pulsar «Comprobar final de video». Usa API ficticia y evento `ended` sintético; no modifica biblioteca ni prueba codecs.
+- Brave Work, escritorio y viewports de 390 × 844 y 844 × 390: pasan íconos con etiquetas accesibles, verde/rojo, botones de 112 px, Sí → inicio, No → despedida, foco y reinicio. Overlay revisado visualmente en escritorio.
+- Corrección de orientación: video y diálogo comparten contenedor fullscreen; `ended` conserva elemento y dimensiones, sin llamar a `exitFullscreen()`. La prueba de regresión simula Fullscreen API para verificar ese contrato y falla si se vuelve a salir al terminar. Navegadores sin fullscreen de elementos usan el contenedor ampliado dentro de la ventana.
+- Fullscreen nativo y giro físico no verificados: automatización rechazó `requestFullscreen()` con `not granted`. Para comprobación manual, desmarcar «Simular API fullscreen» y marcar «Exigir fullscreen nativo». No se probó iOS/Android físico; no se afirma soporte de bloqueo de orientación del sistema.
