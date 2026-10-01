@@ -4,15 +4,29 @@ import {
   Alert,
   Box,
   Button,
+  Card,
+  CardActionArea,
+  CardContent,
   Chip,
+  Dialog,
+  DialogContent,
+  DialogTitle,
   FormControlLabel,
+  MenuItem,
   Paper,
   Stack,
   Switch,
+  Tab,
+  Tabs,
   TextField,
   Typography,
 } from '@mui/material';
-import type { AdminMedia, Category, LibraryResponse } from '@wawatube/shared';
+import type {
+  AdminMedia,
+  Category,
+  ImportJob,
+  LibraryResponse,
+} from '@wawatube/shared';
 import { api, errorText } from '../../api';
 import { EmptyState, ErrorState, LoadingState } from '../../components/Shared';
 import {
@@ -30,6 +44,13 @@ export function AdminLibrary() {
   const [error, setError] = useState<string | null>(null);
   const [categoryError, setCategoryError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [tab, setTab] = useState<'videos' | 'downloads'>('videos');
+  const [adding, setAdding] = useState(false);
+  const [importKey, setImportKey] = useState(0);
+  const [selectedMedia, setSelectedMedia] = useState<AdminMedia | null>(null);
+  const [selectedImport, setSelectedImport] = useState<ImportJob | null>(null);
+  const [search, setSearch] = useState('');
+  const [categoryId, setCategoryId] = useState('');
   useEffect(() => {
     let active = true;
     const load = async () => {
@@ -70,6 +91,22 @@ export function AdminLibrary() {
     };
   }, [refreshKey, t]);
   const refresh = () => setRefreshKey((value) => value + 1);
+  const videos = library?.media.filter(
+    (media) =>
+      media.title
+        .toLocaleLowerCase()
+        .includes(search.trim().toLocaleLowerCase()) &&
+      (!categoryId || media.categoryIds.includes(categoryId)),
+  );
+  const imports = library?.imports.filter((job) => job.state !== 'READY');
+  const playlistImports = library?.playlistImports.filter(
+    (job) =>
+      job.state === 'EXTRACTING' ||
+      job.state === 'FAILED' ||
+      job.downloadedCount < job.videoCount,
+  );
+  const downloadsCount =
+    (imports?.length ?? 0) + (playlistImports?.length ?? 0);
 
   return (
     <Stack spacing={4}>
@@ -89,41 +126,218 @@ export function AdminLibrary() {
         <ErrorState message={categoryError} retry={refresh} />
       ) : null}
       {library ? <Stats library={library} /> : <LoadingState />}
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns:
-            'repeat(auto-fit, minmax(min(100%, 350px), 1fr))',
-          gap: 2.5,
-        }}
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        justifyContent="space-between"
+        gap={2}
       >
-        <YoutubeImporter categories={categories} onComplete={refresh} />
-        <LocalImporter categories={categories} onComplete={refresh} />
-      </Box>
-      {library &&
-      library.imports.length === 0 &&
-      (library.playlistImports?.length ?? 0) === 0 ? (
-        <EmptyState text={t('parent.noImports')} />
-      ) : null}
-      {library?.imports.map((job) => (
-        <ImportStatus key={job.id} job={job} onChanged={refresh} />
-      ))}
-      {library?.playlistImports?.map((job) => (
-        <PlaylistImportStatus key={job.id} job={job} onChanged={refresh} />
-      ))}
-      {library?.media.length === 0 ? (
-        <EmptyState text={t('parent.noMedia')} />
-      ) : null}
-      <Stack spacing={2}>
-        {library?.media.map((media) => (
-          <AdminMediaCard
-            key={media.id}
-            media={media}
-            categories={categories}
-            onChanged={refresh}
-          />
-        ))}
+        <Tabs
+          value={tab}
+          onChange={(_, value: 'videos' | 'downloads') => setTab(value)}
+          aria-label={t('parent.librarySections')}
+        >
+          <Tab value="videos" label={t('parent.videosTab')} />
+          <Tab value="downloads" label={t('parent.downloadsTab')} />
+        </Tabs>
+        <Button variant="contained" onClick={() => setAdding(true)}>
+          {t('parent.addVideos')}
+        </Button>
       </Stack>
+      {tab === 'videos' && library ? (
+        <Stack spacing={2}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+            <TextField
+              label={t('parent.searchVideos')}
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              sx={{ flex: 1 }}
+            />
+            <TextField
+              select
+              label={t('parent.filterCategory')}
+              value={categoryId}
+              onChange={(event) => setCategoryId(event.target.value)}
+              sx={{ minWidth: 220 }}
+            >
+              <MenuItem value="">{t('parent.allCategories')}</MenuItem>
+              {categories.map((category) => (
+                <MenuItem key={category.id} value={category.id}>
+                  {category.icon} {category.name}
+                </MenuItem>
+              ))}
+            </TextField>
+          </Stack>
+          {videos?.length === 0 ? (
+            <EmptyState
+              text={
+                library.media.length === 0
+                  ? t('parent.noMedia')
+                  : t('parent.noMatchingVideos')
+              }
+            />
+          ) : (
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns:
+                  'repeat(auto-fill, minmax(min(100%, 220px), 1fr))',
+                gap: 2,
+              }}
+            >
+              {videos?.map((media) => (
+                <Card key={media.id} component="article">
+                  <CardActionArea
+                    onClick={() => setSelectedMedia(media)}
+                    aria-label={t('parent.editVideo', { title: media.title })}
+                  >
+                    <Box
+                      sx={{
+                        aspectRatio: '16 / 9',
+                        bgcolor: 'action.hover',
+                        display: 'grid',
+                        placeItems: 'center',
+                        overflow: 'hidden',
+                      }}
+                    >
+                      {media.thumbnailUrl ? (
+                        <Box
+                          component="img"
+                          src={media.thumbnailUrl}
+                          alt=""
+                          sx={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover',
+                          }}
+                        />
+                      ) : (
+                        <Typography color="text.secondary">
+                          {t('child.noThumbnail')}
+                        </Typography>
+                      )}
+                    </Box>
+                    <CardContent>
+                      <Typography
+                        fontWeight={800}
+                        sx={{
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {media.title}
+                      </Typography>
+                      <Stack
+                        direction="row"
+                        gap={0.5}
+                        flexWrap="wrap"
+                        sx={{ mt: 1 }}
+                      >
+                        <Chip
+                          size="small"
+                          label={
+                            media.visible
+                              ? t('common.visible')
+                              : t('common.hidden')
+                          }
+                        />
+                        {media.availability !== 'AVAILABLE' ? (
+                          <Chip
+                            size="small"
+                            color="warning"
+                            label={t(`status.${media.availability}`)}
+                          />
+                        ) : null}
+                      </Stack>
+                    </CardContent>
+                  </CardActionArea>
+                </Card>
+              ))}
+            </Box>
+          )}
+        </Stack>
+      ) : null}
+      {tab === 'downloads' && library ? (
+        <Stack spacing={2}>
+          {downloadsCount === 0 ? (
+            <EmptyState text={t('parent.noImports')} />
+          ) : null}
+          {imports?.map((job) => (
+            <ImportStatus
+              key={job.id}
+              job={job}
+              onChanged={refresh}
+              onContinue={
+                job.state === 'PREVIEW'
+                  ? () => {
+                      setSelectedImport(job);
+                      setAdding(true);
+                    }
+                  : undefined
+              }
+            />
+          ))}
+          {playlistImports?.map((job) => (
+            <PlaylistImportStatus key={job.id} job={job} onChanged={refresh} />
+          ))}
+        </Stack>
+      ) : null}
+      <Dialog
+        open={adding}
+        onClose={() => {
+          setAdding(false);
+          setSelectedImport(null);
+        }}
+        fullWidth
+        maxWidth="md"
+        keepMounted
+      >
+        <DialogTitle>{t('parent.addVideos')}</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ pt: 1 }}>
+            <YoutubeImporter
+              key={`${importKey}-${selectedImport?.id ?? 'new'}`}
+              categories={categories}
+              initialJob={selectedImport}
+              onComplete={() => {
+                refresh();
+                setTab('downloads');
+                setAdding(false);
+                setSelectedImport(null);
+                setImportKey((value) => value + 1);
+              }}
+            />
+            <LocalImporter
+              categories={categories}
+              onComplete={() => {
+                refresh();
+                setAdding(false);
+              }}
+            />
+          </Stack>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={selectedMedia !== null}
+        onClose={() => setSelectedMedia(null)}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>{t('parent.editMedia')}</DialogTitle>
+        <DialogContent>
+          {selectedMedia ? (
+            <AdminMediaCard
+              key={selectedMedia.id}
+              media={selectedMedia}
+              categories={categories}
+              onChanged={() => {
+                refresh();
+                setSelectedMedia(null);
+              }}
+            />
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </Stack>
   );
 }

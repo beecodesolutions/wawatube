@@ -77,16 +77,18 @@ export function CategorySelect({
 export function YoutubeImporter({
   categories,
   onComplete,
+  initialJob = null,
 }: {
   categories: Category[];
   onComplete: () => void;
+  initialJob?: ImportJob | null;
 }) {
   const { t } = useTranslation();
   const theme = useTheme();
   const [mode, setMode] = useState<'video' | 'playlist'>('video');
   const [url, setUrl] = useState('');
   const [playlistUrl, setPlaylistUrl] = useState('');
-  const [job, setJob] = useState<ImportJob | null>(null);
+  const [job, setJob] = useState<ImportJob | null>(initialJob);
   const [categoryIds, setCategoryIds] = useState<string[]>([]);
   const [playlistCategoryId, setPlaylistCategoryId] = useState('');
   const [visible, setVisible] = useState(true);
@@ -449,9 +451,11 @@ export function LocalImporter({
 export function ImportStatus({
   job,
   onChanged,
+  onContinue,
 }: {
   job: ImportJob;
   onChanged: () => void;
+  onContinue?: () => void;
 }) {
   const { t } = useTranslation();
   const [busy, setBusy] = useState(false);
@@ -490,6 +494,9 @@ export function ImportStatus({
           ) : null}
         </Box>
         {error ? <Typography color="error">{error}</Typography> : null}
+        {onContinue ? (
+          <Button onClick={onContinue}>{t('parent.continueImport')}</Button>
+        ) : null}
         {job.state === 'FAILED' ? (
           <Button
             onClick={() => {
