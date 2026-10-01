@@ -1,6 +1,49 @@
-# Wawatube
+# 🌈 Wawatube
 
-Biblioteca familiar autohospedada. Los padres eligen; los niños ven únicamente videos aprobados y disponibles. YouTube se descarga con Tube Archivist; los videos familiares permanecen como archivos ordinarios. Ambos usan las mismas categorías y reproductor.
+> **¿Qué querés mirar?** Una biblioteca familiar autohospedada, tranquila y bajo control de casa.
+
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=20232a)](https://react.dev/)
+[![Node.js](https://img.shields.io/badge/Node.js-24-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![Self-hosted](https://img.shields.io/badge/self--hosted-sí-2ea44f)](#producción-en-otra-pc)
+
+Wawatube separa la experiencia infantil del área de adultos: los padres eligen y organizan; los niños ven únicamente videos aprobados y disponibles. Los videos de YouTube se descargan con Tube Archivist y los archivos familiares se registran desde una carpeta local. Ambos orígenes comparten categorías, metadata y reproductor nativo.
+
+## Índice
+
+- [Qué incluye](#qué-incluye)
+- [Arquitectura](#arquitectura)
+- [Requisitos](#requisitos)
+- [Instalación y desarrollo](#instalación-y-desarrollo)
+- [Configurar Tube Archivist](#configurar-tube-archivist)
+- [Usar la biblioteca](#usar-la-biblioteca)
+- [Producción en otra PC](#producción-en-otra-pc)
+- [Backup y restauración](#backup-y-restauración)
+- [Comprobaciones](#comprobaciones)
+
+## Qué incluye
+
+- Inicio infantil con categorías, tarjetas y reproductor nativo sin recomendaciones ni navegación externa.
+- Área de adultos protegida por PIN para categorías, visibilidad, videos locales e importaciones de YouTube.
+- Estados de vista previa, descarga, disponibilidad y error para que cada importación sea entendible.
+- Tema claro/oscuro según el dispositivo, con elección manual persistida.
+- Una API y un modelo de biblioteca para los proveedores locales y YouTube.
+
+## Arquitectura
+
+```mermaid
+flowchart LR
+    UI[React · interfaz infantil y de adultos] --> API[API Fastify]
+    API --> DB[(PostgreSQL)]
+    API --> MEDIA[MediaService · biblioteca unificada]
+    MEDIA --> YP[YouTubeMediaProvider]
+    MEDIA --> LP[LocalMediaProvider]
+    YP --> TA[Tube Archivist]
+    TA --> YT[YouTube]
+    LP --> LOCAL[Archivos familiares]
+```
+
+La UI consume el mismo contrato para media local y de YouTube. La API valida la visibilidad y disponibilidad en cada ruta infantil; PostgreSQL conserva categorías, registros y estados, mientras que Tube Archivist administra la descarga de YouTube.
 
 ## Requisitos
 
@@ -60,7 +103,7 @@ La aprobación se valida también en URLs directas, miniaturas y cada nueva peti
 ## Producción en otra PC
 
 ```bash
-git clone <url-del-repositorio> wawatube
+git clone https://github.com/beecodesolutions/wawatube.git wawatube
 cd wawatube
 cp .env.example .env
 chmod 600 .env
