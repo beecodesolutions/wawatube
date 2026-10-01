@@ -28,6 +28,26 @@ import {
 
 export const THUMBNAIL_RETRY_DELAYS_MS = [1000, 3000, 10000] as const;
 
+function BackButton() {
+  const { t } = useTranslation();
+  return (
+    <Button
+      component={Link}
+      to="/"
+      variant="contained"
+      size="large"
+      startIcon={
+        <Box component="span" aria-hidden sx={{ fontSize: '2rem' }}>
+          ⬅️
+        </Box>
+      }
+      sx={{ mb: 4, minHeight: 64, px: 3, fontSize: '1.25rem', borderRadius: 3 }}
+    >
+      {t('nav.back')}
+    </Button>
+  );
+}
+
 export function thumbnailRetryUrl(url: string, retry: number): string {
   if (url.startsWith('data:')) return url;
   const separator = url.includes('?') ? '&' : '?';
@@ -271,9 +291,7 @@ export function ChildCategory() {
   return (
     <ChildFrame>
       <Container maxWidth="lg" sx={{ py: { xs: 3, md: 6 } }}>
-        <Button component={Link} to="/" color="inherit" sx={{ mb: 4 }}>
-          ← {t('nav.back')}
-        </Button>
+        <BackButton />
         {error ? (
           <ErrorState message={error} retry={load} />
         ) : result === null ? (
@@ -461,9 +479,7 @@ export function ChildPlayer() {
   return (
     <ChildFrame>
       <Container maxWidth="lg" sx={{ py: { xs: 3, md: 6 } }}>
-        <Button component={Link} to="/" color="inherit" sx={{ mb: 4 }}>
-          ← {t('nav.back')}
-        </Button>
+        <BackButton />
         {error ? (
           <ErrorState message={error} retry={load} />
         ) : media === null ? (
