@@ -137,6 +137,46 @@ Sin sudo, se admite `./scripts/install-service.sh --user`. Administrar con `syst
 
 Acceso previsto: LAN privada, sin redirección de puertos en el router. `HOST` puede fijarse a la IP LAN para limitar interfaz de escucha. El PIN y las cookies por HTTP no están cifrados en tránsito; para redes no confiables, usar HTTPS y `SECURE_COOKIES=true`. No hay OAuth, cuentas cloud ni acceso público. Descargar YouTube requiere Internet; ver media ya almacenada no debería requerirlo.
 
+## Nombre local sin puerto
+
+En la **máquina destino**, después de instalar y arrancar el servicio de sistema
+con `install-service.sh`, ejecutar (Debian/Ubuntu/Pop!_OS, Python 3):
+
+```bash
+ip -br addr
+# Reemplazar enp3s0 por la interfaz Ethernet o Wi-Fi de esa máquina.
+python3 scripts/setup-lan.py --interface enp3s0 --dry-run
+sudo python3 scripts/setup-lan.py --interface enp3s0
+```
+
+Acceso: **http://wawatube.local**. Para otro nombre o puerto interno:
+`--name videoteca --port 3100` (nombre sin `.local`). Se puede repetir el comando.
+
+El script instala NGINX y Avahi con `apt-get`, configura el proxy HTTP en puerto
+80 (IPv4/IPv6) y anuncia el nombre solo en la interfaz elegida. Actualiza `.env`
+con `HOST=127.0.0.1`, `PORT` y `PUBLIC_ORIGIN`, y reinicia Wawatube y Avahi.
+El acceso directo por IP LAN y puerto 3100 deja de estar disponible.
+No cambia el hostname del sistema, pero sí el nombre mDNS de Avahi para todo
+el equipo; elegir un nombre único en la red. Conserva otras opciones de Avahi,
+aunque reescribe su archivo sin comentarios, y no elimina sitios NGINX existentes.
+Usar en una máquina sin otro sitio que reclame ese mismo nombre.
+
+Guarda copias privadas de los archivos previos en `/var/backups/wawatube-lan-*`;
+`paths.txt` relaciona cada línea con su copia numerada desde `0`. Esas copias
+incluyen secretos de `.env`: no compartirlas ni versionarlas. Si falla la
+configuración, restaura los archivos e intenta recuperar los servicios;
+los paquetes instalados y la habilitación de servicios no se deshacen.
+
+Requiere servicio **de sistema** `wawatube.service` activo; no admite la variante
+`install-service.sh --user`. No modifica router ni firewall. Si hay firewall,
+permitir TCP 80 y mDNS UDP 5353 en la interfaz LAN. Los clientes deben estar en
+la misma red y soportar mDNS; redes de invitados o aislamiento Wi-Fi pueden
+impedirlo. Verificar desde otro dispositivo abriendo la URL y reproduciendo un
+video. El chequeo automático valida HTTP por NGINX, no resolución mDNS remota.
+
+Prueba del configurador sin modificar servicios:
+`python3 scripts/test_setup_lan.py`.
+
 ## Backup y restauración
 
 El backup contiene credenciales: guardar en almacenamiento privado. Nunca subirlo al repositorio. Detener Node antes de ambos procedimientos; la utilidad rechaza una API activa en el puerto configurado.
