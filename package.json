@@ -1,0 +1,32 @@
+{
+  "name": "wawatube",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.30.1",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter @wawatube/api --filter @wawatube/web dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck && tsc -p scripts/tsconfig.json",
+    "test": "pnpm --filter @wawatube/api test",
+    "lint": "eslint apps packages scripts",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "db:migrate": "pnpm --filter @wawatube/api db:migrate",
+    "pin": "pnpm --filter @wawatube/api pin",
+    "start": "node apps/api/dist/server.js",
+    "test:smoke": "node --env-file=.env scripts/smoke.ts"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.0",
+    "eslint": "^9.39.0",
+    "eslint-plugin-react-hooks": "^7.0.0",
+    "globals": "^16.5.0",
+    "prettier": "^3.6.2",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.46.0",
+    "@types/node": "^24.5.2"
+  }
+}

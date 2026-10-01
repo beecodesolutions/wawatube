@@ -1,0 +1,93 @@
+name: wawatube
+
+services:
+  tubearchivist:
+    image: bbilly1/tubearchivist:v0.5.12
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:${TA_PORT:-18000}:8000'
+    environment:
+      ES_URL: http://elasticsearch:9200
+      REDIS_CON: redis://redis:6379
+      TA_HOST: http://127.0.0.1:${TA_PORT:-18000}
+      TA_USERNAME: ${TA_USERNAME:?Set TA_USERNAME in .env}
+      TA_PASSWORD: ${TA_PASSWORD:?Set TA_PASSWORD in .env}
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:?Set ELASTIC_PASSWORD in .env}
+      HOST_UID: ${MEDIA_UID:-1000}
+      HOST_GID: ${MEDIA_GID:-1000}
+      TZ: ${TZ:-America/Managua}
+    volumes:
+      - ${TA_MEDIA_ROOT:-../data/youtube}:/youtube
+      - ta-cache:/cache
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:8000/api/health/']
+      interval: 20s
+      timeout: 10s
+      retries: 12
+      start_period: 60s
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.19.0
+    restart: unless-stopped
+    environment:
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:?Set ELASTIC_PASSWORD in .env}
+      ES_JAVA_OPTS: -Xms1g -Xmx1g
+      xpack.security.enabled: 'true'
+      xpack.security.http.ssl.enabled: 'false'
+      discovery.type: single-node
+      path.repo: /usr/share/elasticsearch/data/snapshot
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - elasticsearch:/usr/share/elasticsearch/data
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'curl -fsS -u "elastic:$$ELASTIC_PASSWORD" "http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s" >/dev/null',
+        ]
+      interval: 10s
+      timeout: 8s
+      retries: 20
+
+  redis:
+    image: redis:8.10.2-trixie
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes']
+    volumes:
+      - redis:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres:
+    image: postgres:17.11-bookworm
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: wawatube
+      POSTGRES_DB: wawatube
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    ports:
+      - '127.0.0.1:${POSTGRES_PORT:-5544}:5432'
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U wawatube -d wawatube']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  ta-cache:
+  elasticsearch:
+  redis:
+  postgres:

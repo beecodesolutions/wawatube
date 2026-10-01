@@ -1,0 +1,116 @@
+import {
+  boolean,
+  doublePrecision,
+  integer,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+  uuid,
+  uniqueIndex,
+  check,
+} from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+
+const id = () => uuid('id').defaultRandom().primaryKey();
+const timestamps = {
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+};
+
+export const categories = pgTable('categories', {
+  id: id(),
+  name: text('name').notNull(),
+  icon: text('icon').notNull(),
+  sortOrder: integer('sort_order').default(0).notNull(),
+  ...timestamps,
+});
+
+export const mediaItems = pgTable(
+  'media_items',
+  {
+    id: id(),
+    sourceType: text('source_type').notNull(),
+    sourceId: text('source_id').notNull(),
+    title: text('title').notNull(),
+    description: text('description'),
+    thumbnailRef: text('thumbnail_ref'),
+    durationSeconds: doublePrecision('duration_seconds'),
+    visible: boolean('visible').default(false).notNull(),
+    sortOrder: integer('sort_order').default(0).notNull(),
+    availability: text('availability').default('MISSING').notNull(),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex('media_source_unique').on(table.sourceType, table.sourceId),
+    check(
+      'media_source_type_check',
+      sql`${table.sourceType} in ('YOUTUBE','LOCAL')`,
+    ),
+    check(
+      'media_availability_check',
+      sql`${table.availability} in ('AVAILABLE','MISSING','UNAVAILABLE')`,
+    ),
+  ],
+);
+
+export const mediaCategories = pgTable(
+  'media_categories',
+  {
+    mediaItemId: uuid('media_item_id')
+      .notNull()
+      .references(() => mediaItems.id, { onDelete: 'cascade' }),
+    categoryId: uuid('category_id')
+      .notNull()
+      .references(() => categories.id, { onDelete: 'cascade' }),
+  },
+  (table) => [primaryKey({ columns: [table.mediaItemId, table.categoryId] })],
+);
+
+export const imports = pgTable(
+  'imports',
+  {
+    id: id(),
+    sourceType: text('source_type').notNull(),
+    sourceId: text('source_id').notNull(),
+    state: text('state').notNull(),
+    title: text('title'),
+    description: text('description'),
+    durationSeconds: doublePrecision('duration_seconds'),
+    thumbnailUrl: text('thumbnail_url'),
+    mediaItemId: uuid('media_item_id').references(() => mediaItems.id, {
+      onDelete: 'set null',
+    }),
+    errorCode: text('error_code'),
+    approved: boolean('approved').default(false).notNull(),
+    requestedVisible: boolean('requested_visible').default(false).notNull(),
+    requestedCategoryIds: text('requested_category_ids')
+      .array()
+      .default([])
+      .notNull(),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex('import_source_unique').on(table.sourceType, table.sourceId),
+  ],
+);
+
+export const authConfig = pgTable('auth_config', {
+  id: integer('id').primaryKey(),
+  pinHash: text('pin_hash').notNull(),
+  ...timestamps,
+});
+export const sessions = pgTable('sessions', {
+  id: id(),
+  tokenHash: text('token_hash').notNull().unique(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  ...timestamps,
+});
+
+export type CategoryRow = typeof categories.$inferSelect;
+export type MediaRow = typeof mediaItems.$inferSelect;
+export type ImportRow = typeof imports.$inferSelect;
