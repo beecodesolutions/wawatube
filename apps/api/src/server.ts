@@ -24,6 +24,10 @@ const local = new LocalMediaProvider(config.localMediaRoot, config.ffprobePath);
 const tube = new TubeArchivistService(
   config.tubeArchivistUrl,
   config.tubeArchivistToken,
+  resolve(
+    dirname(fileURLToPath(import.meta.url)),
+    '../../../.cache/thumbnails',
+  ),
 );
 const youtube = new YouTubeMediaProvider(tube);
 const media = new ProviderMediaGateway(

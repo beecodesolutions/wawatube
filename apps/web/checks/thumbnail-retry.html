@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Comprobar reintentos de portadas</title>
+  </head>
+  <body>
+    <!-- Development-only check: pnpm --filter @wawatube/web dev, then open
+         /checks/thumbnail-retry.html. No API writes or real library required. -->
+    <p id="result">Ejecutando comprobación…</p>
+    <div id="root"></div>
+    <script type="module">
+      import React from 'react';
+      import { createRoot } from 'react-dom/client';
+      import { I18nextProvider } from 'react-i18next';
+      import { ThemeProvider } from '@mui/material';
+      import i18n from '../src/i18n.ts';
+      import { theme } from '../src/theme.ts';
+      import {
+        MediaThumbnail,
+        THUMBNAIL_RETRY_DELAYS_MS,
+        thumbnailRetryUrl,
+      } from '../src/features/child/ChildRoutes.tsx';
+
+      const nativeSetTimeout = window.setTimeout.bind(window);
+      const nativeClearTimeout = window.clearTimeout.bind(window);
+      const container = document.getElementById('root');
+      const thumbnailUrl = '/checks/thumbnail.svg';
+      const media = {
+        id: 'check',
+        title: 'Video de prueba',
+        description: null,
+        durationSeconds: null,
+        thumbnailUrl,
+        playbackUrl: '/checks/video.mp4',
+      };
+      const assert = (condition, message) => {
+        if (!condition) throw new Error(message);
+      };
+      const waitFor = async (read) => {
+        for (let i = 0; i < 100; i++) {
+          const value = read();
+          if (value) return value;
+          await new Promise((resolve) => nativeSetTimeout(resolve, 20));
+        }
+        throw new Error('Timeout');
+      };
+      const view = () =>
+        React.createElement(
+          I18nextProvider,
+          { i18n },
+          React.createElement(
+            ThemeProvider,
+            { theme },
+            React.createElement(MediaThumbnail, { media }),
+          ),
+        );
+      const pendingTimers = new Map();
+      let nextTimerId = 0;
+      const installControlledTimers = () => {
+        window.setTimeout = (callback, delay, ...args) => {
+          if (![1000, 3000, 10000].includes(delay)) {
+            return nativeSetTimeout(callback, delay, ...args);
+          }
+          const id = ++nextTimerId;
+          pendingTimers.set(id, {
+            callback: () => callback(...args),
+            delay,
+          });
+          return `controlled-${id}`;
+        };
+        window.clearTimeout = (id) => {
+          if (typeof id === 'string' && id.startsWith('controlled-')) {
+            pendingTimers.delete(Number(id.slice('controlled-'.length)));
+          } else {
+            nativeClearTimeout(id);
+          }
+        };
+      };
+      const runTimer = async (delay) => {
+        const entry = [...pendingTimers.entries()].find(
+          ([, timer]) => timer.delay === delay,
+        );
+        assert(entry, `Timer ${delay}ms was not scheduled`);
+        pendingTimers.delete(entry[0]);
+        entry[1].callback();
+        await Promise.resolve();
+        await Promise.resolve();
+      };
+      const currentImage = () => container.querySelector('img');
+      const failImage = () => currentImage()?.dispatchEvent(new Event('error'));
+      const mount = () => {
+        const root = createRoot(container);
+        root.render(view());
+        return root;
+      };
+
+      try {
+        assert(
+          THUMBNAIL_RETRY_DELAYS_MS.join(',') === '1000,3000,10000',
+          'Retry delays',
+        );
+        assert(
+          thumbnailRetryUrl('/media/thumb.jpg', 0) ===
+            '/media/thumb.jpg?thumbnail=v2',
+          'Initial cache bust',
+        );
+        let root = mount();
+        await waitFor(currentImage);
+        installControlledTimers();
+        failImage();
+        assert(pendingTimers.size === 1, 'First retry timer');
+        root.unmount();
+        assert(pendingTimers.size === 0, 'Unmount clears retry timer');
+        window.setTimeout = nativeSetTimeout;
+        window.clearTimeout = nativeClearTimeout;
+
+        container.replaceChildren();
+        root = mount();
+        let image = await waitFor(currentImage);
+        installControlledTimers();
+        failImage();
+        await runTimer(1000);
+        image = await waitFor(() =>
+          currentImage()?.src.includes('thumbnail-retry=1')
+            ? currentImage()
+            : null,
+        );
+        image.dispatchEvent(new Event('load'));
+        await new Promise((resolve) => nativeSetTimeout(resolve, 0));
+        assert(currentImage() === image, 'Recovered thumbnail stays mounted');
+        assert(pendingTimers.size === 0, 'Recovery stops retries');
+        root.unmount();
+        window.setTimeout = nativeSetTimeout;
+        window.clearTimeout = nativeClearTimeout;
+
+        container.replaceChildren();
+        root = mount();
+        image = await waitFor(currentImage);
+        installControlledTimers();
+        assert(image.src.includes('thumbnail=v2'), 'Initial thumbnail URL');
+        failImage();
+        await runTimer(1000);
+        image = await waitFor(() =>
+          currentImage()?.src.includes('thumbnail-retry=1')
+            ? currentImage()
+            : null,
+        );
+        assert(image.src.includes('thumbnail-retry=1'), 'First retry URL');
+        failImage();
+        await runTimer(3000);
+        image = await waitFor(() =>
+          currentImage()?.src.includes('thumbnail-retry=2')
+            ? currentImage()
+            : null,
+        );
+        assert(image.src.includes('thumbnail-retry=2'), 'Second retry URL');
+        failImage();
+        await runTimer(10000);
+        image = await waitFor(() =>
+          currentImage()?.src.includes('thumbnail-retry=3')
+            ? currentImage()
+            : null,
+        );
+        assert(image.src.includes('thumbnail-retry=3'), 'Third retry URL');
+        failImage();
+        await waitFor(() => container.querySelector('[role="img"]'));
+        assert(
+          container.querySelector('[role="img"]').getAttribute('aria-label') ===
+            'Sin portada',
+          'Accessible icon fallback',
+        );
+        assert(
+          container.querySelector('[role="img"] svg'),
+          'Recognizable icon fallback',
+        );
+        root.unmount();
+        document.title = 'PASS: thumbnail retries, fallback y cleanup';
+        document.getElementById('result').textContent = document.title;
+      } catch (error) {
+        document.title = `FAIL: ${error.message}`;
+        document.getElementById('result').textContent = document.title;
+        console.error(error);
+      } finally {
+        window.setTimeout = nativeSetTimeout;
+        window.clearTimeout = nativeClearTimeout;
+      }
+    </script>
+  </body>
+</html>

@@ -26,6 +26,50 @@ import {
   LoadingState,
 } from '../../components/Shared';
 
+export const THUMBNAIL_RETRY_DELAYS_MS = [1000, 3000, 10000] as const;
+
+export function thumbnailRetryUrl(url: string, retry: number): string {
+  if (url.startsWith('data:')) return url;
+  const separator = url.includes('?') ? '&' : '?';
+  return `${url}${separator}thumbnail=v2${
+    retry > 0 ? `&thumbnail-retry=${retry}` : ''
+  }`;
+}
+
+function useThumbnailRetry(url: string | null) {
+  const [retry, setRetry] = useState(0);
+  const [failed, setFailed] = useState(!url);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timer.current !== null) {
+        clearTimeout(timer.current);
+        timer.current = null;
+      }
+    };
+  }, []);
+
+  const handleError = () => {
+    const delay = THUMBNAIL_RETRY_DELAYS_MS[retry];
+    if (delay === undefined) {
+      setFailed(true);
+      return;
+    }
+    if (timer.current !== null) return;
+    timer.current = setTimeout(() => {
+      timer.current = null;
+      setRetry((current) => current + 1);
+    }, delay);
+  };
+
+  return {
+    failed,
+    onError: handleError,
+    src: url ? thumbnailRetryUrl(url, retry) : null,
+  };
+}
+
 export function ChildHome() {
   const { t } = useTranslation();
   const [categories, setCategories] = useState<Category[] | null>(null);
@@ -155,8 +199,8 @@ function CategoryCard({
 
 function CategoryThumbnail({ category }: { category: Category }) {
   const { t } = useTranslation();
-  const [failed, setFailed] = useState(false);
-  if (!category.thumbnailUrl || failed) {
+  const thumbnail = useThumbnailRetry(category.thumbnailUrl);
+  if (thumbnail.failed) {
     return (
       <Typography
         component="span"
@@ -175,9 +219,9 @@ function CategoryThumbnail({ category }: { category: Category }) {
   return (
     <Box
       component="img"
-      src={category.thumbnailUrl}
+      src={thumbnail.src ?? undefined}
       alt={t('a11y.categoryThumbnail', { title: category.name })}
-      onError={() => setFailed(true)}
+      onError={thumbnail.onError}
       sx={{
         position: 'absolute',
         inset: 0,
@@ -272,7 +316,10 @@ function MediaCard({ media }: { media: ChildMedia }) {
   return (
     <Card>
       <CardActionArea component={Link} to={`/watch/${media.id}`}>
-        <MediaThumbnail media={media} />
+        <MediaThumbnail
+          key={media.thumbnailUrl ?? 'fallback'}
+          media={media}
+        />
         <CardContent>
           <Typography
             variant="h6"
@@ -291,13 +338,15 @@ function MediaCard({ media }: { media: ChildMedia }) {
   );
 }
 
-function MediaThumbnail({ media }: { media: ChildMedia }) {
+export function MediaThumbnail({ media }: { media: ChildMedia }) {
   const { t } = useTranslation();
   const theme = useTheme();
-  const [failed, setFailed] = useState(false);
-  if (!media.thumbnailUrl || failed) {
+  const thumbnail = useThumbnailRetry(media.thumbnailUrl);
+  if (thumbnail.failed) {
     return (
       <Box
+        role="img"
+        aria-label={t('child.noThumbnail')}
         sx={{
           display: 'grid',
           placeItems: 'center',
@@ -309,16 +358,18 @@ function MediaThumbnail({ media }: { media: ChildMedia }) {
               : 'linear-gradient(135deg, #d9e6f3, #f8d8c4)',
         }}
       >
-        <Typography color="text.secondary">{t('child.noThumbnail')}</Typography>
+        <SvgIcon aria-hidden sx={{ fontSize: 64 }}>
+          <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5 11 16.51 14.5 12l4.5 6H5l3.5-4.5zM8 8.5A1.5 1.5 0 1 0 8 11.5 1.5 1.5 0 0 0 8 8.5z" />
+        </SvgIcon>
       </Box>
     );
   }
   return (
     <Box
       component="img"
-      src={media.thumbnailUrl}
+      src={thumbnail.src ?? undefined}
       alt={t('a11y.thumbnail', { title: media.title })}
-      onError={() => setFailed(true)}
+      onError={thumbnail.onError}
       sx={{
         display: 'block',
         width: '100%',

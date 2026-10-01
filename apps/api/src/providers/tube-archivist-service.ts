@@ -1,5 +1,6 @@
 import type { MediaMetadata } from './media-provider.js';
 import { ProviderError } from './errors.js';
+import { ThumbnailCache } from './thumbnail-cache.js';
 
 type MetadataRecord = Record<string, unknown>;
 
@@ -11,7 +12,14 @@ export class TubeArchivistService {
   private readonly baseUrl: URL;
   private readonly token: string;
 
-  constructor(baseUrl: string, token: string) {
+  private readonly thumbnails: ThumbnailCache;
+
+  constructor(
+    baseUrl: string,
+    token: string,
+    thumbnailCacheDirectory?: string,
+  ) {
+    this.thumbnails = new ThumbnailCache(thumbnailCacheDirectory);
     let parsed: URL;
     try {
       parsed = new URL(baseUrl);
@@ -188,6 +196,17 @@ export class TubeArchivistService {
     method: 'GET' | 'HEAD' = 'GET',
   ): Promise<Response> {
     const url = this.resourceUrl(path);
+    const thumbnailId = url.pathname.match(
+      /^\/cache\/videos\/[a-z0-9_-]\/([A-Za-z0-9_-]{11})\.jpg$/,
+    )?.[1];
+    if (thumbnailId && !headers.range) {
+      const image = await this.thumbnails.get(thumbnailId, () =>
+        this.request(url, { method: 'GET' }),
+      );
+      return method === 'HEAD'
+        ? new Response(null, { headers: image.headers })
+        : image;
+    }
     const response = await this.request(url, {
       method,
       headers: {

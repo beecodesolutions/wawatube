@@ -11,3 +11,5 @@ media/local/*
 *.tsbuildinfo
 .agents/
 .codex/
+
+.cache/
