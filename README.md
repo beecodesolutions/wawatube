@@ -177,6 +177,36 @@ video. El chequeo automático valida HTTP por NGINX, no resolución mDNS remota.
 Prueba del configurador sin modificar servicios:
 `python3 scripts/test_setup_lan.py`.
 
+## Túnel temporal para probar desde fuera de casa
+
+Con la API de Wawatube corriendo y `.env` configurado:
+
+```bash
+python3 scripts/tunnel.py
+```
+
+Requiere Docker accesible por tu usuario, Node, OpenSSL y dependencias del
+proyecto instaladas. Descarga imágenes de NGINX y Cloudflare si hace falta.
+Muestra URL HTTPS temporal, usuario `wawatube` y contraseña aleatoria nueva.
+Todo acceso externo pasa por Cloudflare y exige esa contraseña; el área de
+adultos conserva además su PIN. Compartir URL y contraseña permite acceder a
+la biblioteca infantil y sus videos.
+
+Por defecto sirve fuentes actuales con Vite: guardar cambios y recargar navegador
+basta, sin build ni reinicio manual. WebSocket usa el túnel en puerto 443, sin
+fallback al dispositivo del visitante. Para servir el build de producción:
+`python3 scripts/tunnel.py --production`.
+
+Dejar esa terminal abierta. **Ctrl+C apaga túnel, proxy y Vite creados por el
+script**, y elimina archivos temporales. No detiene API ni modifica `.env`, router
+ni servicios de sistema. También limpia ante errores normales y SIGTERM;
+un cierre forzado con SIGKILL no permite ejecutar limpieza. Si ocurrió, localizar
+contenedores propios con `docker ps --filter name=wawatube-` y detener los que
+empiezan por `wawatube-tunnel-` y `wawatube-proxy-` mediante `docker stop <nombre>`.
+Cada ejecución recibe URL y contraseña nuevas; no tiene reinicio automático.
+
+Prueba sin abrir túnel: `python3 scripts/test_tunnel.py`.
+
 ## Backup y restauración
 
 El backup contiene credenciales: guardar en almacenamiento privado. Nunca subirlo al repositorio. Detener Node antes de ambos procedimientos; la utilidad rechaza una API activa en el puerto configurado.
