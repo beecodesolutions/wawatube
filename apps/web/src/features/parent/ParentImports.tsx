@@ -18,6 +18,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import type { Category, ImportJob, LocalCandidate } from '@wawatube/shared';
 import { api, errorText } from '../../api';
 
@@ -71,6 +72,7 @@ export function YoutubeImporter({
   onComplete: () => void;
 }) {
   const { t } = useTranslation();
+  const theme = useTheme();
   const [url, setUrl] = useState('');
   const [job, setJob] = useState<ImportJob | null>(null);
   const [categoryIds, setCategoryIds] = useState<string[]>([]);
@@ -159,7 +161,10 @@ export function YoutubeImporter({
                   placeItems: 'center',
                   width: '100%',
                   aspectRatio: '16/9',
-                  background: 'linear-gradient(135deg, #d9e6f3, #f8d8c4)',
+                  background:
+                    theme.palette.mode === 'dark'
+                      ? 'linear-gradient(135deg, #23333e, #4b3940)'
+                      : 'linear-gradient(135deg, #d9e6f3, #f8d8c4)',
                 }}
               >
                 <Typography color="text.secondary">

@@ -17,6 +17,10 @@ const resources = {
         categories: 'Categorías',
         logout: 'Cerrar sesión',
       },
+      theme: {
+        useLight: 'Usar tema claro',
+        useDark: 'Usar tema oscuro',
+      },
       common: {
         loading: 'Cargando…',
         retry: 'Intentar de nuevo',

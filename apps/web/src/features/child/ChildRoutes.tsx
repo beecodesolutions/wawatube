@@ -11,6 +11,7 @@ import {
   Stack,
   Typography,
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import type { Category, ChildMedia } from '@wawatube/shared';
 import { api, errorText } from '../../api';
 import {
@@ -110,7 +111,11 @@ function CategoryCard({
   index: number;
 }) {
   const { t } = useTranslation();
-  const colors = ['#f8d8c4', '#dcebdc', '#d9e6f3', '#f1e2ba'];
+  const theme = useTheme();
+  const colors =
+    theme.palette.mode === 'dark'
+      ? ['#3b3033', '#29403f', '#293d4b', '#4a3e2d']
+      : ['#f8d8c4', '#dcebdc', '#d9e6f3', '#f1e2ba'];
   return (
     <Card
       sx={{
@@ -269,6 +274,7 @@ function MediaCard({ media }: { media: ChildMedia }) {
 
 function MediaThumbnail({ media }: { media: ChildMedia }) {
   const { t } = useTranslation();
+  const theme = useTheme();
   const [failed, setFailed] = useState(false);
   if (!media.thumbnailUrl || failed) {
     return (
@@ -278,7 +284,10 @@ function MediaThumbnail({ media }: { media: ChildMedia }) {
           placeItems: 'center',
           width: '100%',
           aspectRatio: '16 / 9',
-          background: 'linear-gradient(135deg, #d9e6f3, #f8d8c4)',
+          background:
+            theme.palette.mode === 'dark'
+              ? 'linear-gradient(135deg, #23333e, #4b3940)'
+              : 'linear-gradient(135deg, #d9e6f3, #f8d8c4)',
         }}
       >
         <Typography color="text.secondary">{t('child.noThumbnail')}</Typography>

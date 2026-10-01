@@ -7,11 +7,36 @@ import {
   Box,
   Button,
   CircularProgress,
+  IconButton,
   Paper,
   Stack,
   Toolbar,
+  Tooltip,
   Typography,
 } from '@mui/material';
+import { useColorScheme } from '@mui/material/styles';
+
+export function ThemeToggle() {
+  const { t } = useTranslation();
+  const { mode, systemMode, setMode } = useColorScheme();
+  const effectiveMode = mode === 'system' ? systemMode : mode;
+  if (!effectiveMode) return null;
+  const dark = effectiveMode === 'dark';
+  const label = t(dark ? 'theme.useLight' : 'theme.useDark');
+  return (
+    <Tooltip title={label}>
+      <IconButton
+        onClick={() => setMode(dark ? 'light' : 'dark')}
+        aria-label={label}
+        sx={{ minWidth: 44, minHeight: 44 }}
+      >
+        <Box component="span" aria-hidden sx={{ fontSize: '1.25rem' }}>
+          {dark ? '☀️' : '🌙'}
+        </Box>
+      </IconButton>
+    </Tooltip>
+  );
+}
 
 export function ChildFrame({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
@@ -19,7 +44,10 @@ export function ChildFrame({ children }: { children: ReactNode }) {
     <Box
       sx={{
         minHeight: '100vh',
-        background: 'linear-gradient(180deg, #fbf7f0 0%, #eff5f5 100%)',
+        background: (theme) =>
+          theme.palette.mode === 'dark'
+            ? 'linear-gradient(180deg, #101a20 0%, #172b32 100%)'
+            : 'linear-gradient(180deg, #fbf7f0 0%, #eff5f5 100%)',
       }}
     >
       <AppBar
@@ -28,7 +56,7 @@ export function ChildFrame({ children }: { children: ReactNode }) {
         elevation={0}
         sx={{ backdropFilter: 'blur(14px)' }}
       >
-        <Toolbar sx={{ justifyContent: 'space-between', py: 1 }}>
+        <Toolbar sx={{ justifyContent: 'space-between', py: 1, gap: 2 }}>
           <Button
             component={Link}
             to="/"
@@ -44,13 +72,16 @@ export function ChildFrame({ children }: { children: ReactNode }) {
             </Box>
             {t('app.name')}
           </Button>
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            sx={{ display: { xs: 'none', sm: 'block' } }}
-          >
-            {t('app.greeting')}
-          </Typography>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ display: { xs: 'none', sm: 'block' } }}
+            >
+              {t('app.greeting')}
+            </Typography>
+            <ThemeToggle />
+          </Stack>
         </Toolbar>
       </AppBar>
       {children}
@@ -100,7 +131,7 @@ export function EmptyState({ text }: { text: string }) {
       sx={{
         p: 5,
         textAlign: 'center',
-        backgroundColor: 'rgba(255,255,255,.62)',
+        backgroundColor: 'background.paper',
       }}
     >
       <Typography color="text.secondary">{text}</Typography>

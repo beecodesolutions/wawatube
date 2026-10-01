@@ -10,8 +10,8 @@ import { theme } from './theme';
 
 export function App() {
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
+    <ThemeProvider theme={theme} defaultMode="system">
+      <CssBaseline enableColorScheme />
       <Routes>
         <Route path="/" element={<ChildHome />} />
         <Route path="/category/:categoryId" element={<ChildCategoryRoute />} />

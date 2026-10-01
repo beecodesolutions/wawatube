@@ -16,7 +16,7 @@ import {
   useNavigate,
 } from 'react-router-dom';
 import { api, subscribeUnauthorized } from '../../api';
-import { LoadingState } from '../../components/Shared';
+import { LoadingState, ThemeToggle } from '../../components/Shared';
 import { AdminLibrary } from './ParentLibrary';
 import { AdminCategories } from './ParentCategories';
 import { ParentLogin } from './ParentLogin';
@@ -74,26 +74,42 @@ function ParentFrame({
     }
   };
   return (
-    <Box sx={{ minHeight: '100vh', backgroundColor: '#f6f7f5' }}>
+    <Box sx={{ minHeight: '100vh', backgroundColor: 'background.default' }}>
       <AppBar position="sticky" color="inherit" elevation={0}>
         <Toolbar sx={{ gap: 2, flexWrap: 'wrap', py: 1 }}>
-          <Typography variant="h6" sx={{ mr: 'auto', fontWeight: 900 }}>
+          <Typography
+            variant="h6"
+            sx={{ flex: 1, minWidth: 'min(100%, 180px)', fontWeight: 900 }}
+          >
             {t('parent.title')}
           </Typography>
-          <Button component={NavLink} to="library" color="inherit">
-            {t('nav.library')}
-          </Button>
-          <Button component={NavLink} to="categories" color="inherit">
-            {t('nav.categories')}
-          </Button>
-          <Button
-            onClick={() => {
-              void logout();
+          <Box sx={{ order: { xs: 1, sm: 2 }, display: 'flex' }}>
+            <ThemeToggle />
+          </Box>
+          <Box
+            sx={{
+              display: 'flex',
+              width: { xs: '100%', sm: 'auto' },
+              justifyContent: { xs: 'space-between', sm: 'initial' },
+              gap: 1,
+              order: { xs: 2, sm: 1 },
             }}
-            color="secondary"
           >
-            {t('nav.logout')}
-          </Button>
+            <Button component={NavLink} to="library" color="inherit">
+              {t('nav.library')}
+            </Button>
+            <Button component={NavLink} to="categories" color="inherit">
+              {t('nav.categories')}
+            </Button>
+            <Button
+              onClick={() => {
+                void logout();
+              }}
+              color="secondary"
+            >
+              {t('nav.logout')}
+            </Button>
+          </Box>
         </Toolbar>
       </AppBar>
       <Container maxWidth="lg" sx={{ py: { xs: 3, md: 6 } }}>
