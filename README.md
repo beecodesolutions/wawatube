@@ -90,9 +90,12 @@ La integración está basada en Tube Archivist **v0.5.12**, Elasticsearch **8.19
 
 - Niños: `/`. Categoría → video → reproductor nativo, sin contenido recomendado ni navegación externa.
 - Padres: `/parent`. PIN → biblioteca, categorías e importaciones. No hay botón administrativo en la UI infantil.
-- YouTube: pegar URL de video individual → esperar metadata → elegir categorías y visibilidad → confirmar. Playlists se posponen.
+- YouTube, video individual: pegar URL → esperar metadata → elegir categorías y visibilidad → confirmar.
+- YouTube, playlist: elegir **Playlist**, pegar su URL y pulsar **Descargar playlist**. Se puede elegir una categoría para todos los videos o dejar **Sin categoría**. La categoría elegida se agrega a los videos existentes sin quitar sus otras categorías ni cambiar su visibilidad; los nuevos usan la visibilidad seleccionada. La preparación y las descargas continúan en segundo plano, incluso si se cierra la pantalla. Cada video muestra su estado y permite reintentar errores. Solo se importa el contenido actual: no se crea una suscripción a futuras incorporaciones.
 - Locales: colocar `.mp4`, `.mkv`, `.webm` o `.mov` debajo de `LOCAL_MEDIA_ROOT`; buscar candidatos en el área de padres y registrar los deseados. El navegador no puede elegir directorios arbitrarios del servidor.
 - Ocultar conserva archivo y registro; eliminar de biblioteca conserva archivo original/archivo de Tube Archivist.
+
+Al actualizar una instalación existente para habilitar playlists, ejecutar `pnpm db:migrate` antes de compilar y reiniciar la aplicación. La migración agrega el registro persistente de importaciones de playlists.
 
 `LOCAL_MEDIA_ROOT` relativo se resuelve desde la raíz del proyecto. Puede apuntar a una carpeta externa. Identificadores locales son rutas relativas internas: mover toda la raíz conserva referencias; renombrar/mover un archivo dentro de ella requiere actualizar su registro. El servidor rechaza traversal y enlaces simbólicos que salgan de la raíz. No otorgar a usuarios no confiables permisos de escritura sobre ella.
 
@@ -181,5 +184,7 @@ Las pruebas de API crean y eliminan un schema temporal aislado en `DATABASE_URL`
 - [Compose oficial del tag](https://github.com/tubearchivist/tubearchivist/blob/v0.5.12/docker-compose.yml)
 - [Autenticación API](https://docs.tubearchivist.com/api/introduction/)
 - [Endpoints de cola](https://github.com/tubearchivist/tubearchivist/blob/v0.5.12/backend/download/views.py)
+- [Estados de tareas](https://github.com/tubearchivist/tubearchivist/blob/v0.5.12/backend/task/serializers.py) y [consulta por ID](https://github.com/tubearchivist/tubearchivist/blob/v0.5.12/backend/task/views.py)
+- [Metadata de playlists](https://github.com/tubearchivist/tubearchivist/blob/v0.5.12/backend/playlist/views.py)
 - [Protección de archivos Nginx](https://github.com/tubearchivist/tubearchivist/blob/v0.5.12/docker_assets/nginx.conf)
 - [Requisitos Elasticsearch](https://www.elastic.co/docs/deploy-manage/deploy/self-managed/install-elasticsearch-docker-prod)

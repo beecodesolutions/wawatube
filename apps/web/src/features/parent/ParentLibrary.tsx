@@ -19,6 +19,7 @@ import {
   CategorySelect,
   ImportStatus,
   LocalImporter,
+  PlaylistImportStatus,
   YoutubeImporter,
 } from './ParentImports';
 
@@ -99,11 +100,16 @@ export function AdminLibrary() {
         <YoutubeImporter categories={categories} onComplete={refresh} />
         <LocalImporter categories={categories} onComplete={refresh} />
       </Box>
-      {library?.imports.length === 0 ? (
+      {library &&
+      library.imports.length === 0 &&
+      (library.playlistImports?.length ?? 0) === 0 ? (
         <EmptyState text={t('parent.noImports')} />
       ) : null}
       {library?.imports.map((job) => (
         <ImportStatus key={job.id} job={job} onChanged={refresh} />
+      ))}
+      {library?.playlistImports?.map((job) => (
+        <PlaylistImportStatus key={job.id} job={job} onChanged={refresh} />
       ))}
       {library?.media.length === 0 ? (
         <EmptyState text={t('parent.noMedia')} />

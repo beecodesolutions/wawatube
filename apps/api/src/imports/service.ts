@@ -14,6 +14,7 @@ import { importDto } from '../library/service.js';
 import { ProviderError } from '../providers/errors.js';
 
 const EXTRACTION_TIMEOUT = 30 * 60_000;
+const DOWNLOAD_TIMEOUT = 30 * 60_000;
 export class ImportService {
   private running = false;
   private readonly queuedThisProcess = new Set<string>();
@@ -82,7 +83,7 @@ export class ImportService {
       const [updated] = await this.db
         .update(imports)
         .set({
-          state: 'PREVIEW',
+          state: row.approved ? 'QUEUED' : 'PREVIEW',
           title: metadata.title,
           description: metadata.description,
           durationSeconds: metadata.durationSeconds,
@@ -137,19 +138,114 @@ export class ImportService {
     await this.process(updated, true);
     return importDto(await this.job(id));
   }
+
+  async enqueuePlaylistVideo(
+    sourceId: string,
+    categoryId: string | null,
+    visible: boolean,
+  ): Promise<void> {
+    if (categoryId) {
+      const found = await this.db
+        .select({ id: categories.id })
+        .from(categories)
+        .where(eq(categories.id, categoryId));
+      if (!found.length) throw new ApiFailure(400, 'CATEGORY_NOT_FOUND');
+    }
+    const [knownMedia] = await this.db
+      .select()
+      .from(mediaItems)
+      .where(
+        and(
+          eq(mediaItems.sourceType, 'YOUTUBE'),
+          eq(mediaItems.sourceId, sourceId),
+        ),
+      )
+      .limit(1);
+    const available = knownMedia
+      ? await this.media.available('YOUTUBE', sourceId)
+      : false;
+    if (knownMedia && available) {
+      if (categoryId)
+        await this.db
+          .insert(mediaCategories)
+          .values({ mediaItemId: knownMedia.id, categoryId })
+          .onConflictDoNothing();
+      return;
+    }
+    await this.db.transaction(async (tx) => {
+      await tx
+        .insert(imports)
+        .values({
+          sourceType: 'YOUTUBE',
+          sourceId,
+          title: sourceId,
+          state: 'QUEUED',
+          approved: true,
+          requestedVisible: knownMedia?.visible ?? visible,
+        })
+        .onConflictDoNothing();
+      const [existing] = await tx
+        .select()
+        .from(imports)
+        .where(
+          and(
+            eq(imports.sourceType, 'YOUTUBE'),
+            eq(imports.sourceId, sourceId),
+          ),
+        )
+        .for('update')
+        .limit(1);
+      const [media] = await tx
+        .select()
+        .from(mediaItems)
+        .where(
+          and(
+            eq(mediaItems.sourceType, 'YOUTUBE'),
+            eq(mediaItems.sourceId, sourceId),
+          ),
+        )
+        .limit(1);
+      const links = media
+        ? await tx
+            .select({ id: mediaCategories.categoryId })
+            .from(mediaCategories)
+            .where(eq(mediaCategories.mediaItemId, media.id))
+        : [];
+      const categoryIds = [
+        ...new Set([
+          ...(media
+            ? links.map(({ id }) => id)
+            : existing!.requestedCategoryIds),
+          ...(categoryId ? [categoryId] : []),
+        ]),
+      ];
+      if (existing!.state !== 'QUEUED')
+        this.queuedThisProcess.delete(existing!.id);
+      await tx
+        .update(imports)
+        .set({
+          state: 'QUEUED',
+          approved: true,
+          requestedVisible: media?.visible ?? visible,
+          requestedCategoryIds: categoryIds,
+          errorCode: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(imports.id, existing!.id));
+    });
+  }
   async retry(id: string): Promise<ImportJob> {
     const row = await this.job(id);
     if (row.state !== 'FAILED') throw new ApiFailure(409, 'IMPORT_NOT_FAILED');
     this.queuedThisProcess.delete(id);
-    const state = row.approved ? 'QUEUED' : 'EXTRACTING';
     const [updated] = await this.db
       .update(imports)
-      .set({ state, errorCode: null, updatedAt: new Date() })
+      .set({ state: 'EXTRACTING', errorCode: null, updatedAt: new Date() })
       .where(eq(imports.id, id))
       .returning();
     if (!updated) throw new ApiFailure(404, 'IMPORT_NOT_FOUND');
-    if (!row.approved) return importDto(await this.extract(updated));
-    await this.process(updated, true);
+    const extracted = await this.extract(updated);
+    if (extracted.state === 'QUEUED') await this.process(extracted, true);
     return importDto(await this.job(id));
   }
   async reconcile(): Promise<void> {
@@ -193,7 +289,7 @@ export class ImportService {
           await this.db
             .update(imports)
             .set({
-              state: 'PREVIEW',
+              state: row.approved ? 'QUEUED' : 'PREVIEW',
               title: result.metadata.title,
               description: result.metadata.description,
               durationSeconds: result.metadata.durationSeconds,
@@ -215,6 +311,38 @@ export class ImportService {
     }
     if (row.state !== 'QUEUED' || !row.approved) return;
     const result = await this.media.reconcileYoutube(row.sourceId);
+    if (!result.metadata) {
+      if (result.failed)
+        await this.db
+          .update(imports)
+          .set({
+            state: 'FAILED',
+            errorCode: 'DOWNLOAD_FAILED',
+            updatedAt: new Date(),
+          })
+          .where(eq(imports.id, row.id));
+      else if (Date.now() - row.updatedAt.getTime() > DOWNLOAD_TIMEOUT)
+        await this.db
+          .update(imports)
+          .set({
+            state: 'FAILED',
+            errorCode: 'DOWNLOAD_TIMEOUT',
+            updatedAt: new Date(),
+          })
+          .where(eq(imports.id, row.id));
+      return;
+    }
+    if (!row.title || row.title === row.sourceId) {
+      await this.db
+        .update(imports)
+        .set({
+          title: result.metadata.title,
+          description: result.metadata.description,
+          durationSeconds: result.metadata.durationSeconds,
+          thumbnailUrl: result.metadata.thumbnailRef,
+        })
+        .where(eq(imports.id, row.id));
+    }
     if (result.available && result.metadata) {
       await this.publish(row, result.metadata);
       return;
@@ -224,6 +352,7 @@ export class ImportService {
       return;
     }
     if (result.failed) {
+      this.queuedThisProcess.delete(row.id);
       await this.db
         .update(imports)
         .set({

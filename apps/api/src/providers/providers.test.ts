@@ -9,6 +9,7 @@ import { TubeArchivistService } from './tube-archivist-service.js';
 import {
   YouTubeMediaProvider,
   youtubeIdFromUrl,
+  youtubePlaylistIdFromUrl,
 } from './youtube-media-provider.js';
 
 const videoId = 'dQw4w9WgXcQ';
@@ -51,6 +52,28 @@ describe('youtube URL parsing', () => {
       (error: unknown) =>
         error instanceof ProviderError && error.code === 'INVALID_URL',
     );
+  });
+
+  it('accepts playlist links only on trusted YouTube hosts', () => {
+    assert.equal(
+      youtubePlaylistIdFromUrl(
+        'https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PL12345678',
+      ),
+      'PL12345678',
+    );
+    assert.equal(
+      youtubePlaylistIdFromUrl('https://youtu.be/dQw4w9WgXcQ?list=PL12345678'),
+      'PL12345678',
+    );
+    for (const url of [
+      'https://evil.example/playlist?list=PL12345678',
+      'javascript:alert(1)',
+      'https://www.youtube.com/watch?list=bad',
+      'https://user:pass@www.youtube.com/watch?list=PL12345678',
+    ])
+      assert.throws(() => youtubePlaylistIdFromUrl(url), {
+        code: 'INVALID_URL',
+      });
   });
 });
 
@@ -153,6 +176,100 @@ describe('TubeArchivist service', () => {
       assert.deepEqual(JSON.parse(requests[1]?.body ?? '{}'), {
         data: [{ youtube_id: videoId, status: 'pending' }],
       });
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it('polls a playlist task before reading its fresh flat record', async () => {
+    const requests: string[] = [];
+    let taskStatus: string | null = null;
+    let lastRefresh: string | number | null = 1;
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async (input, init) => {
+      const url = new URL(String(input));
+      requests.push(`${init?.method ?? 'GET'} ${url.pathname}${url.search}`);
+      if (init?.method === 'POST' && url.pathname === '/api/download/')
+        return new Response(JSON.stringify({ task_id: 'task-playlist' }));
+      if (url.pathname === '/api/task/by-id/task-playlist/')
+        return taskStatus === null
+          ? new Response(null, { status: 404 })
+          : new Response(JSON.stringify({ status: taskStatus }));
+      if (url.pathname === '/api/playlist/PL12345678/')
+        return new Response(
+          JSON.stringify({
+            playlist_name: 'Playlist',
+            playlist_last_refresh: lastRefresh,
+            playlist_entries: [
+              { youtube_id: videoId },
+              { youtube_id: videoId },
+              { youtube_id: 'private-entry' },
+            ],
+          }),
+        );
+      return new Response(null, { status: 404 });
+    };
+    try {
+      const service = new TubeArchivistService(
+        'http://127.0.0.1:18000',
+        'secret',
+      );
+      assert.equal(
+        await service.startPlaylist(
+          'https://www.youtube.com/playlist?list=PL12345678',
+        ),
+        'task-playlist',
+      );
+      assert.equal(
+        (await service.playlistTask('task-playlist', 'PL12345678')).state,
+        'PENDING',
+      );
+      taskStatus = 'STARTED';
+      assert.equal(
+        (await service.playlistTask('task-playlist', 'PL12345678')).state,
+        'PENDING',
+      );
+      assert.equal(
+        requests.some((path) => path.includes('/api/playlist/')),
+        true,
+      );
+      taskStatus = 'SUCCESS';
+      assert.deepEqual(
+        await service.playlistTask('task-playlist', 'PL12345678'),
+        {
+          state: 'READY',
+          title: 'Playlist',
+          videoIds: [videoId],
+          lastRefresh: 1,
+        },
+      );
+      assert.deepEqual(requests, [
+        'POST /api/download/?autostart=false',
+        'GET /api/task/by-id/task-playlist/',
+        'GET /api/task/by-id/task-playlist/',
+        'GET /api/playlist/PL12345678/',
+        'GET /api/task/by-id/task-playlist/',
+        'GET /api/playlist/PL12345678/',
+      ]);
+      lastRefresh = '2026-10-01T20:15:59+00:00';
+      const iso = await service.playlistTask('task-playlist', 'PL12345678');
+      assert.equal(iso.lastRefresh, Date.parse(lastRefresh) / 1000);
+      for (const invalid of [null, 'invalid-date']) {
+        lastRefresh = invalid;
+        await assert.rejects(service.playlist('PL12345678'), {
+          code: 'UPSTREAM_INVALID_RESPONSE',
+        });
+      }
+      taskStatus = 'FAILURE';
+      assert.equal(
+        (await service.playlistTask('task-playlist', 'PL12345678')).state,
+        'FAILED',
+      );
+      taskStatus = 'unexpected';
+      await assert.rejects(
+        service.playlistTask('task-playlist', 'PL12345678'),
+        { code: 'UPSTREAM_INVALID_RESPONSE' },
+      );
     } finally {
       globalThis.fetch = originalFetch;
     }

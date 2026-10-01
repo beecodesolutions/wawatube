@@ -4,4 +4,5 @@ export { TubeArchivistService } from './tube-archivist-service.js';
 export {
   YouTubeMediaProvider,
   youtubeIdFromUrl,
+  youtubePlaylistIdFromUrl,
 } from './youtube-media-provider.js';

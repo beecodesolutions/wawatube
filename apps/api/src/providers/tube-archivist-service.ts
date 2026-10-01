@@ -49,6 +49,109 @@ export class TubeArchivistService {
     return { taskId, metadata: await this.pending(videoId) };
   }
 
+  async startPlaylist(url: string): Promise<string> {
+    const response = await this.request('/api/download/?autostart=false', {
+      method: 'POST',
+      body: JSON.stringify({
+        data: [{ youtube_id: url, status: 'pending' }],
+      }),
+    });
+    if (!response.ok) throw new ProviderError('UPSTREAM_ERROR');
+    const payload = await this.json(response);
+    const taskId = stringValue(payload.task_id);
+    if (!taskId) throw new ProviderError('UPSTREAM_INVALID_RESPONSE');
+    return taskId;
+  }
+
+  async playlistTask(
+    taskId: string,
+    playlistId: string,
+  ): Promise<{
+    state: 'PENDING' | 'READY' | 'FAILED';
+    title: string | null;
+    videoIds: string[];
+    lastRefresh: number | null;
+  }> {
+    const response = await this.request(
+      `/api/task/by-id/${encodeURIComponent(taskId)}/`,
+      {
+        method: 'GET',
+      },
+    );
+    if (response.status === 404)
+      return { state: 'PENDING', title: null, videoIds: [], lastRefresh: null };
+    if (!response.ok) throw new ProviderError('UPSTREAM_ERROR');
+    const payload = await this.json(response);
+    const status = payload.status;
+    if (status === 'FAILURE' || status === 'REVOKED')
+      return { state: 'FAILED', title: null, videoIds: [], lastRefresh: null };
+    if (status === 'PENDING' || status === 'STARTED' || status === 'RETRY') {
+      try {
+        return { state: 'PENDING', ...(await this.playlist(playlistId)) };
+      } catch (error) {
+        if (
+          !(error instanceof ProviderError) ||
+          error.code !== 'PLAYLIST_NOT_FOUND'
+        )
+          throw error;
+        return {
+          state: 'PENDING',
+          title: null,
+          videoIds: [],
+          lastRefresh: null,
+        };
+      }
+    }
+    if (status !== 'SUCCESS')
+      throw new ProviderError('UPSTREAM_INVALID_RESPONSE');
+
+    const record = await this.playlist(playlistId);
+    return { state: 'READY', ...record };
+  }
+
+  async playlist(playlistId: string): Promise<{
+    title: string | null;
+    videoIds: string[];
+    lastRefresh: number | null;
+  }> {
+    if (!/^[A-Za-z0-9_-]{8,128}$/.test(playlistId))
+      throw new ProviderError('INVALID_PLAYLIST_ID');
+    const response = await this.request(
+      `/api/playlist/${encodeURIComponent(playlistId)}/`,
+      {
+        method: 'GET',
+      },
+    );
+    if (response.status === 404) throw new ProviderError('PLAYLIST_NOT_FOUND');
+    if (!response.ok) throw new ProviderError('UPSTREAM_ERROR');
+    const payload = await this.json(response);
+    const entries = payload.playlist_entries;
+    if (!Array.isArray(entries))
+      throw new ProviderError('UPSTREAM_INVALID_RESPONSE');
+    const lastRefresh =
+      typeof payload.playlist_last_refresh === 'number'
+        ? payload.playlist_last_refresh
+        : typeof payload.playlist_last_refresh === 'string'
+          ? Date.parse(payload.playlist_last_refresh) / 1000
+          : NaN;
+    if (!Number.isFinite(lastRefresh))
+      throw new ProviderError('UPSTREAM_INVALID_RESPONSE');
+    const videoIds = entries
+      .map((entry) =>
+        isRecord(entry) && typeof entry.youtube_id === 'string'
+          ? entry.youtube_id
+          : null,
+      )
+      .filter(
+        (id): id is string => typeof id === 'string' && VIDEO_ID.test(id),
+      );
+    return {
+      title: stringValue(payload.playlist_name),
+      videoIds: [...new Set(videoIds)],
+      lastRefresh,
+    };
+  }
+
   async pending(videoId: string): Promise<MediaMetadata | null> {
     validateVideoId(videoId);
     return this.metadataFrom('/api/download/', videoId);

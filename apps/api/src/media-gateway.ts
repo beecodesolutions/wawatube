@@ -24,6 +24,16 @@ export interface MediaGateway {
     available: boolean;
     failed: boolean;
   }>;
+  startYoutubePlaylist(url: string): Promise<string>;
+  reconcileYoutubePlaylist(
+    taskId: string,
+    playlistId: string,
+  ): Promise<{
+    state: 'PENDING' | 'READY' | 'FAILED';
+    title: string | null;
+    videoIds: string[];
+    lastRefresh: number | null;
+  }>;
   upstream(
     path: string,
     headers?: { range?: string; ifRange?: string },
@@ -42,6 +52,16 @@ export class ProviderMediaGateway implements MediaGateway {
         metadata: MediaMetadata | null;
         available: boolean;
         failed: boolean;
+      }>;
+      startPlaylist(url: string): Promise<string>;
+      playlistTask(
+        taskId: string,
+        playlistId: string,
+      ): Promise<{
+        state: 'PENDING' | 'READY' | 'FAILED';
+        title: string | null;
+        videoIds: string[];
+        lastRefresh: number | null;
       }>;
     },
     private readonly candidates: () => Promise<LocalCandidate[]>,
@@ -77,6 +97,12 @@ export class ProviderMediaGateway implements MediaGateway {
   }
   reconcileYoutube(id: string) {
     return this.youtube.reconcile(id);
+  }
+  startYoutubePlaylist(url: string) {
+    return this.youtube.startPlaylist(url);
+  }
+  reconcileYoutubePlaylist(taskId: string, playlistId: string) {
+    return this.youtube.playlistTask(taskId, playlistId);
   }
   upstream(
     path: string,

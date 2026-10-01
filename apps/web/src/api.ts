@@ -8,6 +8,8 @@ import type {
   LibraryResponse,
   LocalCandidate,
   MediaUpdate,
+  PlaylistImportJob,
+  PlaylistImportRequest,
 } from '@wawatube/shared';
 
 export class ApiRequestError extends Error {
@@ -108,6 +110,11 @@ export const api = {
     }),
   importYoutube: (url: string) =>
     request<ImportJob>('/api/admin/import/youtube', json({ url })),
+  importYoutubePlaylist: (input: PlaylistImportRequest) =>
+    request<PlaylistImportJob>(
+      '/api/admin/import/youtube/playlist',
+      json(input),
+    ),
   importJob: (id: string) =>
     request<ImportJob>(`/api/admin/import/${encodeURIComponent(id)}`),
   confirmImport: (id: string, input: ImportConfirmation) =>
@@ -118,6 +125,11 @@ export const api = {
   retryImport: (id: string) =>
     request<ImportJob>(
       `/api/admin/import/${encodeURIComponent(id)}/retry`,
+      json({}),
+    ),
+  retryPlaylistImport: (id: string) =>
+    request<PlaylistImportJob>(
+      `/api/admin/playlist-import/${encodeURIComponent(id)}/retry`,
       json({}),
     ),
   importThumbnail: (id: string) =>

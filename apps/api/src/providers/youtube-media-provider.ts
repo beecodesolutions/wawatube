@@ -80,3 +80,40 @@ export const youtubeIdFromUrl = (input: string): string => {
     throw new ProviderError('INVALID_URL');
   return candidate;
 };
+
+const YOUTUBE_HOSTS = new Set([
+  'youtube.com',
+  'www.youtube.com',
+  'm.youtube.com',
+  'youtube-nocookie.com',
+  'www.youtube-nocookie.com',
+  'youtu.be',
+]);
+const PLAYLIST_ID = /^[A-Za-z0-9_-]{8,128}$/;
+
+export const youtubePlaylistIdFromUrl = (input: string): string => {
+  let url: URL;
+  try {
+    url = new URL(input);
+  } catch {
+    throw new ProviderError('INVALID_URL');
+  }
+  if (
+    !['http:', 'https:'].includes(url.protocol) ||
+    url.username ||
+    url.password ||
+    url.port
+  )
+    throw new ProviderError('INVALID_URL');
+  const hostname = url.hostname.toLowerCase();
+  if (!YOUTUBE_HOSTS.has(hostname)) throw new ProviderError('INVALID_URL');
+  if (
+    hostname !== 'youtu.be' &&
+    !['/watch', '/playlist'].includes(url.pathname)
+  )
+    throw new ProviderError('INVALID_URL');
+  const playlistId = url.searchParams.get('list');
+  if (!playlistId || !PLAYLIST_ID.test(playlistId))
+    throw new ProviderError('INVALID_URL');
+  return playlistId;
+};

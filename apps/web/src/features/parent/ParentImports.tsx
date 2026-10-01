@@ -9,9 +9,13 @@ import {
   CircularProgress,
   FormControl,
   FormControlLabel,
+  FormLabel,
   InputLabel,
+  LinearProgress,
   MenuItem,
   Paper,
+  Radio,
+  RadioGroup,
   Select,
   Stack,
   Switch,
@@ -19,7 +23,13 @@ import {
   Typography,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import type { Category, ImportJob, LocalCandidate } from '@wawatube/shared';
+import type {
+  Category,
+  ImportJob,
+  LocalCandidate,
+  PlaylistImportJob,
+  PlaylistImportRequest,
+} from '@wawatube/shared';
 import { api, errorText } from '../../api';
 
 export function CategorySelect({
@@ -73,12 +83,17 @@ export function YoutubeImporter({
 }) {
   const { t } = useTranslation();
   const theme = useTheme();
+  const [mode, setMode] = useState<'video' | 'playlist'>('video');
   const [url, setUrl] = useState('');
+  const [playlistUrl, setPlaylistUrl] = useState('');
   const [job, setJob] = useState<ImportJob | null>(null);
   const [categoryIds, setCategoryIds] = useState<string[]>([]);
+  const [playlistCategoryId, setPlaylistCategoryId] = useState('');
   const [visible, setVisible] = useState(true);
+  const [playlistVisible, setPlaylistVisible] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [playlistSuccess, setPlaylistSuccess] = useState(false);
   const [previewThumbnailFailed, setPreviewThumbnailFailed] = useState(false);
   const preview = async (event: FormEvent) => {
     event.preventDefault();
@@ -87,6 +102,29 @@ export function YoutubeImporter({
     try {
       setJob(await api.importYoutube(url));
       setPreviewThumbnailFailed(false);
+    } catch (reason: unknown) {
+      setError(errorText(reason, t));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const importPlaylist = async (event: FormEvent) => {
+    event.preventDefault();
+    setBusy(true);
+    setError(null);
+    setPlaylistSuccess(false);
+    const input: PlaylistImportRequest = {
+      url: playlistUrl,
+      visible: playlistVisible,
+      ...(playlistCategoryId ? { categoryId: playlistCategoryId } : {}),
+    };
+    try {
+      const result = await api.importYoutubePlaylist(input);
+      if (result.state !== 'FAILED') {
+        setPlaylistUrl('');
+        setPlaylistSuccess(true);
+      }
+      onComplete();
     } catch (reason: unknown) {
       setError(errorText(reason, t));
     } finally {
@@ -112,11 +150,41 @@ export function YoutubeImporter({
         <Stack spacing={0.5}>
           <Typography variant="h5">{t('parent.youtubeTitle')}</Typography>
           <Typography color="text.secondary">
-            {t('parent.youtubeHint')}
+            {mode === 'video'
+              ? t('parent.youtubeHint')
+              : t('parent.playlistHint')}
           </Typography>
         </Stack>
+        <FormControl component="fieldset" disabled={busy}>
+          <FormLabel component="legend">{t('parent.importMode')}</FormLabel>
+          <RadioGroup
+            row
+            value={mode}
+            onChange={(event) => {
+              const nextMode = event.target.value;
+              if (nextMode === 'video' || nextMode === 'playlist')
+                setMode(nextMode);
+              setError(null);
+              setPlaylistSuccess(false);
+            }}
+          >
+            <FormControlLabel
+              value="video"
+              control={<Radio />}
+              label={t('parent.videoMode')}
+            />
+            <FormControlLabel
+              value="playlist"
+              control={<Radio />}
+              label={t('parent.playlistMode')}
+            />
+          </RadioGroup>
+        </FormControl>
         {error ? <Alert severity="error">{error}</Alert> : null}
-        {!job ? (
+        {playlistSuccess ? (
+          <Alert severity="success">{t('parent.playlistSuccess')}</Alert>
+        ) : null}
+        {mode === 'video' && !job ? (
           <Box component="form" onSubmit={preview}>
             <Stack spacing={2}>
               <TextField
@@ -134,9 +202,12 @@ export function YoutubeImporter({
                   t('parent.preview')
                 )}
               </Button>
+              <Typography color="text.secondary" variant="body2">
+                {t('parent.videoModeHint')}
+              </Typography>
             </Stack>
           </Box>
-        ) : (
+        ) : mode === 'video' && job ? (
           <Stack spacing={2}>
             <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
               {t('parent.previewTitle')}
@@ -202,6 +273,64 @@ export function YoutubeImporter({
               <Button onClick={() => setJob(null)}>{t('common.cancel')}</Button>
             </Stack>
           </Stack>
+        ) : (
+          <Box component="form" onSubmit={importPlaylist}>
+            <Stack spacing={2}>
+              <TextField
+                fullWidth
+                required
+                label={t('parent.youtubeUrl')}
+                value={playlistUrl}
+                disabled={busy}
+                onChange={(event) => setPlaylistUrl(event.target.value)}
+                placeholder={t('parent.playlistPlaceholder')}
+              />
+              <FormControl fullWidth disabled={busy}>
+                <InputLabel id="playlist-category-label">
+                  {t('parent.playlistCategory')}
+                </InputLabel>
+                <Select
+                  labelId="playlist-category-label"
+                  label={t('parent.playlistCategory')}
+                  value={playlistCategoryId}
+                  onChange={(event) =>
+                    setPlaylistCategoryId(event.target.value)
+                  }
+                >
+                  <MenuItem value="">
+                    <em>{t('parent.noCategory')}</em>
+                  </MenuItem>
+                  {categories.map((category) => (
+                    <MenuItem key={category.id} value={category.id}>
+                      {category.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <Typography color="text.secondary" variant="body2">
+                {t('parent.playlistCategoryHint')}
+              </Typography>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={playlistVisible}
+                    disabled={busy}
+                    onChange={(event) =>
+                      setPlaylistVisible(event.target.checked)
+                    }
+                  />
+                }
+                label={t('parent.visibility')}
+              />
+              <Button type="submit" variant="contained" disabled={busy}>
+                {busy ? (
+                  <CircularProgress size={22} color="inherit" />
+                ) : (
+                  t('parent.downloadPlaylist')
+                )}
+              </Button>
+            </Stack>
+          </Box>
         )}
       </Stack>
     </Paper>
@@ -357,6 +486,117 @@ export function ImportStatus({
             {job.title ?? t('common.notSet')}
           </Typography>
           <Chip size="small" label={t(`status.${job.state}`)} />
+          {importError ? (
+            <Typography color="error" variant="body2" sx={{ mt: 1 }}>
+              {importError}
+            </Typography>
+          ) : null}
+        </Box>
+        {error ? <Typography color="error">{error}</Typography> : null}
+        {job.state === 'FAILED' ? (
+          <Button
+            onClick={() => {
+              void retry();
+            }}
+            disabled={busy}
+          >
+            {busy ? t('common.loading') : t('parent.retryDownload')}
+          </Button>
+        ) : null}
+      </Stack>
+    </Paper>
+  );
+}
+
+export function PlaylistImportStatus({
+  job,
+  onChanged,
+}: {
+  job: PlaylistImportJob;
+  onChanged: () => void;
+}) {
+  const { t } = useTranslation();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const retry = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await api.retryPlaylistImport(job.id);
+      onChanged();
+    } catch (reason: unknown) {
+      setError(errorText(reason, t));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const importError = job.errorCode
+    ? t(`errors.${job.errorCode}`, { defaultValue: t('errors.import_failed') })
+    : null;
+  const hasKnownTotal = job.videoCount > 0;
+  const isComplete = hasKnownTotal && job.downloadedCount === job.videoCount;
+  const statusLabel =
+    job.state === 'EXTRACTING'
+      ? t('status.EXTRACTING')
+      : job.state === 'FAILED'
+        ? t('status.FAILED')
+        : isComplete
+          ? t('parent.playlistCompleted')
+          : job.failedCount > 0
+            ? t('parent.playlistDownloadFailed')
+            : t('parent.playlistDownloading');
+  const progressValue = hasKnownTotal
+    ? (job.downloadedCount / job.videoCount) * 100
+    : undefined;
+  return (
+    <Paper sx={{ p: 2 }}>
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        spacing={2}
+        alignItems={{ sm: 'center' }}
+      >
+        <Box sx={{ flex: 1 }}>
+          <Typography sx={{ fontWeight: 800 }}>
+            {job.title ?? t('parent.playlistFallbackTitle')}
+          </Typography>
+          <Chip size="small" label={statusLabel} />
+          {job.state === 'EXTRACTING' && !hasKnownTotal ? (
+            <>
+              <Typography color="text.secondary" variant="body2" sx={{ mt: 1 }}>
+                {t('parent.playlistExtractionUnknown')}
+              </Typography>
+              <LinearProgress
+                aria-label={t('parent.playlistProgressLabel')}
+                sx={{ mt: 1 }}
+              />
+            </>
+          ) : null}
+          {hasKnownTotal ? (
+            <Stack spacing={0.75} sx={{ mt: 1 }}>
+              <Typography color="text.secondary" variant="body2">
+                {t('parent.playlistProgress', {
+                  downloaded: job.downloadedCount,
+                  total: job.videoCount,
+                })}
+              </Typography>
+              <LinearProgress
+                aria-label={t('parent.playlistProgressLabel')}
+                variant="determinate"
+                value={progressValue}
+              />
+              <Typography color="text.secondary" variant="body2">
+                {t('parent.playlistProgressDetails', {
+                  pending: job.pendingCount,
+                  failed: job.failedCount,
+                })}
+              </Typography>
+            </Stack>
+          ) : null}
+          {job.state === 'EXTRACTING' && hasKnownTotal ? (
+            <Typography color="text.secondary" variant="body2" sx={{ mt: 1 }}>
+              {t('parent.playlistPreparing')}
+            </Typography>
+          ) : null}
           {importError ? (
             <Typography color="error" variant="body2" sx={{ mt: 1 }}>
               {importError}

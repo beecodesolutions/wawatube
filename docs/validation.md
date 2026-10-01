@@ -11,3 +11,11 @@ Verificado el 1 de octubre de 2026, Linux, Node 24.14.1.
 - Instalación limpia con `pnpm install --offline --frozen-lockfile` y build: correcta. Backup final restauró ambos MediaItems con los mismos IDs, categoría y visibilidad. Ambos reproductores devolvieron 206 y miniaturas 200, también después de recrear los cuatro contenedores. Entorno de prueba eliminado; instancia principal preservada.
 
 El video YouTube de prueba es `jNQXAC9IVRw`. Se verificó extracción y descarga con Tube Archivist real; las pruebas de recuperación tras reinicio y fallo simulan el proveedor para controlar esos estados. Los archivos locales de prueba son sintéticos. Las pruebas no autorizan contenido futuro para niños: cada nuevo video requiere aprobación.
+
+## Playlists — 1 de octubre de 2026
+
+- Suite actual: 10 pruebas aprobadas. PostgreSQL real en schemas temporales; proveedor YouTube simulado. Cubre autenticación/origen, URL y categoría inválidas, categoría opcional, conservación de categorías y visibilidad existentes, deduplicación, reanudación con una nueva instancia del servicio, publicación de videos y reintento asíncrono sin nueva aprobación manual.
+- Contrato de Tube Archivist v0.5.12: extracción sin autodescarga ni suscripción, consulta de tarea por ID y lectura de playlist después de `SUCCESS`. Pruebas cubren tarea pendiente/no encontrada, fallo, estado desconocido, metadata vieja, playlist vacía y timeout.
+- `pnpm typecheck`, `pnpm lint` y `pnpm format:check`: correctos. API, contratos y frontend compilados en `/tmp`, sin reemplazar la versión que sirve la instancia instalada.
+- Brave Work, escritorio: formulario Playlist, envío sin categoría y con categoría/visibilidad seleccionadas, confirmación y estado de preparación. API simulada para esta prueba visual; no se descargó una playlist real. La captura móvil no pudo completarse por timeout del navegador; tamaño restaurado.
+- La aprobación de una playlist autoriza sus videos actuales como lote. No suscribe automáticamente videos futuros. Para activar el cambio en una instalación existente, aplicar migraciones, compilar y reiniciar.

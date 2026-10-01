@@ -38,9 +38,26 @@ export interface LocalCandidate {
   sourceId: string;
   title: string;
 }
+export interface PlaylistImportRequest {
+  url: string;
+  categoryId?: string;
+  visible: boolean;
+}
+export interface PlaylistImportJob {
+  id: string;
+  playlistId: string;
+  state: 'EXTRACTING' | 'READY' | 'FAILED';
+  title: string | null;
+  videoCount: number;
+  downloadedCount: number;
+  failedCount: number;
+  pendingCount: number;
+  errorCode: string | null;
+}
 export interface LibraryResponse {
   media: AdminMedia[];
   imports: ImportJob[];
+  playlistImports: PlaylistImportJob[];
   counts: {
     total: number;
     available: number;

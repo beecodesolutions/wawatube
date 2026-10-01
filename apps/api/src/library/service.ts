@@ -12,6 +12,7 @@ import type { Database } from '../db/index.js';
 import {
   categories,
   imports,
+  playlistImports,
   mediaCategories,
   mediaItems,
   type MediaRow,
@@ -38,6 +39,19 @@ export const importDto = (row: typeof imports.$inferSelect) => ({
     ? `/api/admin/import/${row.id}/thumbnail`
     : null,
   mediaItemId: row.mediaItemId,
+  errorCode: row.errorCode,
+});
+export const playlistImportDto = (
+  row: typeof playlistImports.$inferSelect,
+) => ({
+  id: row.id,
+  playlistId: row.playlistId,
+  state: row.state as 'EXTRACTING' | 'READY' | 'FAILED',
+  title: row.title,
+  videoCount: row.videoIds.length,
+  downloadedCount: 0,
+  failedCount: 0,
+  pendingCount: row.videoIds.length,
   errorCode: row.errorCode,
 });
 
@@ -147,17 +161,53 @@ export class LibraryService {
       .select()
       .from(imports)
       .orderBy(desc(imports.createdAt));
+    const playlistPending = await this.db
+      .select()
+      .from(playlistImports)
+      .orderBy(desc(playlistImports.createdAt));
+    const availableIds = new Set(
+      rows
+        .filter(
+          (row, index) =>
+            row.sourceType === 'YOUTUBE' &&
+            list[index]?.availability === 'AVAILABLE',
+        )
+        .map((row) => row.sourceId),
+    );
+    const failedIds = new Set(
+      pending
+        .filter((job) => job.sourceType === 'YOUTUBE' && job.state === 'FAILED')
+        .map((job) => job.sourceId),
+    );
     return {
       media: list,
       imports: pending.map(importDto),
+      playlistImports: playlistPending.map((row) => {
+        const ids = [...new Set(row.videoIds)];
+        const downloadedCount = ids.filter((id) => availableIds.has(id)).length;
+        const failedCount = ids.filter(
+          (id) => !availableIds.has(id) && failedIds.has(id),
+        ).length;
+        return {
+          ...playlistImportDto(row),
+          videoCount: ids.length,
+          downloadedCount,
+          failedCount,
+          pendingCount: ids.length - downloadedCount - failedCount,
+        };
+      }),
       counts: {
         total: list.length,
         available: list.filter((item) => item.availability === 'AVAILABLE')
           .length,
-        downloading: pending.filter(
-          (job) => job.state === 'EXTRACTING' || job.state === 'QUEUED',
-        ).length,
-        failed: pending.filter((job) => job.state === 'FAILED').length,
+        downloading:
+          pending.filter(
+            (job) => job.state === 'EXTRACTING' || job.state === 'QUEUED',
+          ).length +
+          playlistPending.filter((job) => job.state === 'EXTRACTING').length,
+        failed:
+          pending.filter((job) => job.state === 'FAILED').length +
+          playlistPending.filter((job) => job.state === 'FAILED').length,
       },
     };
   }

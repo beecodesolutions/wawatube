@@ -58,6 +58,18 @@ export const youtubeImportBody = {
     properties: { url: { type: 'string', minLength: 1, maxLength: 2048 } },
   },
 } as const;
+export const youtubePlaylistImportBody = {
+  body: {
+    type: 'object',
+    required: ['url', 'visible'],
+    additionalProperties: false,
+    properties: {
+      url: { type: 'string', minLength: 1, maxLength: 2048 },
+      categoryId: { type: 'string', pattern: idPattern },
+      visible: { type: 'boolean' },
+    },
+  },
+} as const;
 export const confirmationBody = {
   ...idParams,
   body: {

@@ -7,6 +7,7 @@ import { openDatabase } from './db/index.js';
 import { createApp } from './app.js';
 import { ProviderMediaGateway } from './media-gateway.js';
 import { ImportService } from './imports/service.js';
+import { PlaylistImportService } from './imports/playlist-service.js';
 
 const config = loadConfig();
 const { db, sql } = openDatabase(config.databaseUrl);
@@ -46,13 +47,16 @@ const media = new ProviderMediaGateway(
         failed: await tube.failed(id),
       };
     },
+    startPlaylist: (url) => tube.startPlaylist(url),
+    playlistTask: (taskId, playlistId) => tube.playlistTask(taskId, playlistId),
   },
   () => local.discover(),
   (path, headers, method: 'GET' | 'HEAD' = 'GET') =>
     tube.resource(path, headers ?? {}, method),
 );
 const imports = new ImportService(db, media);
-const app = createApp({ db, config, media, imports });
+const playlistImports = new PlaylistImportService(db, media, imports);
+const app = createApp({ db, config, media, imports, playlistImports });
 const webRoot = resolve(
   dirname(fileURLToPath(import.meta.url)),
   '../../web/dist',
@@ -71,8 +75,10 @@ app.setNotFoundHandler((request, reply) => {
 });
 await app.listen({ host: config.host, port: config.port });
 await imports.reconcile().catch((error) => app.log.error(error));
+await playlistImports.reconcile().catch((error) => app.log.error(error));
 const timer = setInterval(() => {
   void imports.reconcile().catch((error) => app.log.error(error));
+  void playlistImports.reconcile().catch((error) => app.log.error(error));
 }, 30_000);
 const close = async () => {
   clearInterval(timer);

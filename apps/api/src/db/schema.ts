@@ -99,6 +99,27 @@ export const imports = pgTable(
   ],
 );
 
+export const playlistImports = pgTable(
+  'playlist_imports',
+  {
+    id: id(),
+    playlistId: text('playlist_id').notNull(),
+    state: text('state').notNull(),
+    title: text('title'),
+    videoIds: text('video_ids').array().default([]).notNull(),
+    taskId: text('task_id'),
+    categoryId: uuid('category_id').references(() => categories.id, {
+      onDelete: 'set null',
+    }),
+    visible: boolean('visible').default(false).notNull(),
+    errorCode: text('error_code'),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex('playlist_import_playlist_unique').on(table.playlistId),
+  ],
+);
+
 export const authConfig = pgTable('auth_config', {
   id: integer('id').primaryKey(),
   pinHash: text('pin_hash').notNull(),
@@ -114,3 +135,4 @@ export const sessions = pgTable('sessions', {
 export type CategoryRow = typeof categories.$inferSelect;
 export type MediaRow = typeof mediaItems.$inferSelect;
 export type ImportRow = typeof imports.$inferSelect;
+export type PlaylistImportRow = typeof playlistImports.$inferSelect;

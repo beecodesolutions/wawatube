@@ -75,8 +75,32 @@ const resources = {
         register: 'Registrar video',
         youtubeTitle: 'Agregar desde YouTube',
         youtubeHint: 'Primero mirá la vista previa y luego confirmá.',
+        importMode: 'Tipo de importación',
+        videoMode: 'Video',
+        playlistMode: 'Playlist',
+        videoModeHint:
+          'En modo Video se importa solo el video de la URL, aunque también tenga una playlist.',
+        playlistHint:
+          'Descargá todos los videos de una playlist sin aprobarlos uno por uno.',
         youtubeUrl: 'URL de YouTube',
         youtubePlaceholder: 'https://www.youtube.com/watch?v=…',
+        playlistPlaceholder: 'https://www.youtube.com/playlist?list=…',
+        playlistCategory: 'Categoría para todos (opcional)',
+        noCategory: 'Sin categoría',
+        playlistCategoryHint:
+          'Los videos ya registrados solo suman esta categoría y conservan su visibilidad; los nuevos usan la visibilidad elegida.',
+        downloadPlaylist: 'Descargar playlist',
+        playlistSuccess: 'Playlist recibida. Preparando videos…',
+        playlistPreparing: 'Preparando playlist…',
+        playlistFallbackTitle: 'Playlist de YouTube',
+        playlistExtractionUnknown: 'YouTube aún no informó cantidad.',
+        playlistProgress: '{{downloaded}}/{{total}} videos descargados',
+        playlistProgressDetails:
+          '{{pending}} pendientes · {{failed}} con error',
+        playlistProgressLabel: 'Progreso de descarga de la playlist',
+        playlistCompleted: 'Descarga completada',
+        playlistDownloading: 'Descargando videos…',
+        playlistDownloadFailed: 'Hay videos con errores de descarga',
         preview: 'Ver vista previa',
         confirming: 'Confirmando…',
         confirm: 'Confirmar y descargar',
@@ -135,9 +159,28 @@ const resources = {
         UPSTREAM_INVALID_RESPONSE:
           'El servicio de video devolvió datos inesperados.',
         DOWNLOAD_FAILED: 'No se pudo descargar este video.',
+        DOWNLOAD_TIMEOUT: 'La descarga tardó demasiado.',
         EXTRACTION_TIMEOUT: 'La preparación del video tardó demasiado.',
         INVALID_RANGE: 'No pudimos leer este fragmento del video.',
         INVALID_VIDEO_ID: 'El identificador del video no es válido.',
+        INVALID_YOUTUBE_PLAYLIST_URL:
+          'Pegá una URL de YouTube que incluya una playlist.',
+        PLAYLIST_IMPORT_IN_PROGRESS:
+          'Esa playlist ya se está preparando con otra selección. Esperá a que termine.',
+        PLAYLIST_STALE:
+          'No pudimos actualizar la playlist desde YouTube. Probá de nuevo.',
+        PLAYLIST_EMPTY: 'La playlist está vacía o no tiene videos accesibles.',
+        INVALID_PLAYLIST_ID: 'El identificador de la playlist no es válido.',
+        PLAYLIST_NOT_FOUND: 'No encontramos esa playlist.',
+        PLAYLIST_EXTRACTION_FAILED: 'No pudimos preparar esa playlist.',
+        PLAYLIST_EXTRACTION_TIMEOUT:
+          'La preparación de la playlist tardó demasiado.',
+        PLAYLIST_MEMBER_REGISTRATION_FAILED:
+          'No pudimos registrar todos los videos de la playlist.',
+        PLAYLIST_IMPORT_NOT_FOUND:
+          'No encontramos esa importación de playlist.',
+        PLAYLIST_IMPORT_NOT_FAILED:
+          'Esta importación todavía no tiene un error para reintentar.',
         INVALID_RESOURCE: 'El recurso de video no es válido.',
         INVALID_URL: 'Revisá la URL de YouTube.',
         INVALID_UPSTREAM_URL:

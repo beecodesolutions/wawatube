@@ -35,6 +35,14 @@ test('API isolates hidden media, validates bodies, serves local ranges and resum
       'utf8',
     );
     await sql.unsafe(migration, [], { prepare: false });
+    await sql.unsafe(
+      await readFile(
+        new URL('../migrations/0001_playlist_imports.sql', import.meta.url),
+        'utf8',
+      ),
+      [],
+      { prepare: false },
+    );
     const db = drizzle(sql, { schema });
     const file = join(mediaRoot, 'sample.mp4');
     await writeFile(file, Buffer.from('0123456789'));
@@ -65,6 +73,13 @@ test('API isolates hidden media, validates bodies, serves local ranges and resum
         metadata,
         available: availableYoutube,
         failed: failedYoutube,
+      }),
+      startYoutubePlaylist: async () => 'playlist-task',
+      reconcileYoutubePlaylist: async () => ({
+        state: 'PENDING' as const,
+        title: null,
+        videoIds: [],
+        lastRefresh: null,
       }),
       upstream: async () => new Response(null, { status: 404 }),
     };
