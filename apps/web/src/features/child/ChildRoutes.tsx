@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
@@ -140,7 +146,12 @@ export function ChildHome() {
           direction="row"
           spacing={2}
           alignItems="center"
-          sx={{ width: '100%', maxWidth: 1200, mx: 'auto', mb: { xs: 4, md: 6 } }}
+          sx={{
+            width: '100%',
+            maxWidth: 1200,
+            mx: 'auto',
+            mb: { xs: 4, md: 6 },
+          }}
         >
           <ChildBrand />
           <Typography
@@ -371,7 +382,8 @@ function MediaCard({
             event.ctrlKey ||
             event.shiftKey ||
             event.altKey
-          ) return;
+          )
+            return;
           void document.documentElement.requestFullscreen?.().catch(() => {});
         }}
       >
@@ -448,13 +460,81 @@ export function ChildPlayer() {
   const playerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const lastTap = useRef<{ at: number; side: 'left' | 'right' } | null>(null);
-  const [expanded, setExpanded] = useState(playerState?.autoFullscreen === true);
+  const [expanded, setExpanded] = useState(
+    playerState?.autoFullscreen === true,
+  );
   const [playing, setPlaying] = useState(false);
   const [media, setMedia] = useState<ChildMedia | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [ending, setEnding] = useState<'watching' | 'choice' | 'goodbye'>(
     'watching',
   );
+  const viewedRef = useRef(false);
+  const playingSinceRef = useRef<number | null>(null);
+  const pendingSecondsRef = useRef(0);
+
+  const recordTelemetry = useCallback(
+    (views: 0 | 1, seconds: number) => {
+      if (!mediaId || (views === 0 && seconds <= 0)) return;
+      void api
+        .childTelemetry(mediaId, {
+          views,
+          seconds: Math.min(30, Math.max(0, Math.floor(seconds))),
+        })
+        .catch(() => {});
+    },
+    [mediaId],
+  );
+
+  const flushTelemetry = useCallback(
+    (stop = true) => {
+      const since = playingSinceRef.current;
+      if (since === null) return;
+      const now = Date.now();
+      pendingSecondsRef.current += Math.max(0, (now - since) / 1000);
+      playingSinceRef.current = stop ? null : now;
+      let seconds = Math.floor(pendingSecondsRef.current);
+      pendingSecondsRef.current -= seconds;
+      while (seconds > 0) {
+        const batch = Math.min(30, seconds);
+        recordTelemetry(0, batch);
+        seconds -= batch;
+      }
+    },
+    [recordTelemetry],
+  );
+
+  const handlePlay = () => {
+    setPlaying(true);
+  };
+
+  const handlePlaying = () => {
+    if (!viewedRef.current) {
+      viewedRef.current = true;
+      recordTelemetry(1, 0);
+    }
+    playingSinceRef.current ??= Date.now();
+    setPlaying(true);
+  };
+
+  useEffect(() => {
+    viewedRef.current = false;
+    playingSinceRef.current = null;
+    pendingSecondsRef.current = 0;
+  }, [mediaId]);
+  useEffect(() => {
+    if (!playing) return undefined;
+    const interval = window.setInterval(() => flushTelemetry(false), 10_000);
+    return () => window.clearInterval(interval);
+  }, [flushTelemetry, playing]);
+  useEffect(() => {
+    const flush = () => flushTelemetry();
+    window.addEventListener('pagehide', flush);
+    return () => {
+      window.removeEventListener('pagehide', flush);
+      flushTelemetry();
+    };
+  }, [flushTelemetry]);
   useEffect(() => {
     const syncFullscreen = () =>
       setExpanded(
@@ -574,9 +654,25 @@ export function ChildPlayer() {
                   poster={media.thumbnailUrl ?? undefined}
                   autoPlay
                   playsInline
-                  onPlay={() => setPlaying(true)}
-                  onPause={() => setPlaying(false)}
-                  onEnded={() => setEnding('choice')}
+                  onPlay={handlePlay}
+                  onPlaying={handlePlaying}
+                  onPause={() => {
+                    flushTelemetry();
+                    setPlaying(false);
+                  }}
+                  onWaiting={() => {
+                    flushTelemetry();
+                    setPlaying(false);
+                  }}
+                  onStalled={() => {
+                    flushTelemetry();
+                    setPlaying(false);
+                  }}
+                  onEnded={() => {
+                    flushTelemetry();
+                    setEnding('choice');
+                    setPlaying(false);
+                  }}
                   aria-label={t('child.playerLabel')}
                   onError={() => setError(t('child.playerError'))}
                   onPointerUp={(event) => {

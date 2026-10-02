@@ -12,6 +12,7 @@ import type {
   CategoryInput,
   ImportConfirmation,
   MediaUpdate,
+  PlaybackTelemetry,
 } from '@wawatube/shared';
 import type { AppConfig } from './config.js';
 import type { Database } from './db/index.js';
@@ -26,6 +27,7 @@ import {
   youtubeImportBody,
   youtubePlaylistImportBody,
   confirmationBody,
+  telemetryBody,
 } from './http/schemas.js';
 import { LibraryService, importDto, sourceType } from './library/service.js';
 import { ImportService } from './imports/service.js';
@@ -36,6 +38,7 @@ import {
   youtubeIdFromUrl as providerYoutubeIdFromUrl,
   youtubePlaylistIdFromUrl as providerYoutubePlaylistIdFromUrl,
 } from './providers/youtube-media-provider.js';
+import { TelemetryService } from './telemetry/service.js';
 
 interface AppOptions {
   db: Database;
@@ -129,6 +132,7 @@ export function createApp(options: AppOptions): FastifyInstance {
   const imports = options.imports ?? new ImportService(db, media);
   const playlistImports =
     options.playlistImports ?? new PlaylistImportService(db, media, imports);
+  const telemetry = new TelemetryService(db);
   const app = Fastify({
     logger: true,
     ajv: { customOptions: { coerceTypes: false } },
@@ -150,6 +154,18 @@ export function createApp(options: AppOptions): FastifyInstance {
     '/api/kids/categories/:id/media',
     { schema: idParams },
     (request) => library.categoryMedia(id(request.params.id)),
+  );
+  app.post<{
+    Params: { id: string };
+    Body: PlaybackTelemetry;
+  }>(
+    '/api/kids/media/:id/telemetry',
+    { schema: telemetryBody },
+    async (request, reply) => {
+      const row = await library.childItem(id(request.params.id));
+      await telemetry.record(row.id, request.body);
+      return reply.code(204).send();
+    },
   );
   app.get<{ Params: { id: string } }>(
     '/api/kids/media/:id',
@@ -192,6 +208,7 @@ export function createApp(options: AppOptions): FastifyInstance {
       requireAdmin(request, reply, db),
     );
     admin.get('/api/admin/media', () => library.library());
+    admin.get('/api/admin/telemetry', () => telemetry.report());
     admin.get('/api/admin/categories', () => library.categories());
     admin.post<{ Body: CategoryInput }>(
       '/api/admin/categories',

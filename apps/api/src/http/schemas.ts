@@ -94,6 +94,18 @@ export const loginBody = {
     properties: { pin: { type: 'string', minLength: 1, maxLength: 128 } },
   },
 } as const;
+export const telemetryBody = {
+  ...idParams,
+  body: {
+    type: 'object',
+    required: ['views', 'seconds'],
+    additionalProperties: false,
+    properties: {
+      views: { type: 'integer', enum: [0, 1] },
+      seconds: { type: 'integer', minimum: 0, maximum: 30 },
+    },
+  },
+} as const;
 export function id(value: string): string {
   if (!new RegExp(idPattern).test(value))
     throw new ApiFailure(400, 'INVALID_ID');

@@ -51,6 +51,14 @@ test('API isolates hidden media, validates bodies, serves local ranges and resum
       [],
       { prepare: false },
     );
+    await sql.unsafe(
+      await readFile(
+        new URL('../migrations/0003_telemetry.sql', import.meta.url),
+        'utf8',
+      ),
+      [],
+      { prepare: false },
+    );
     const db = drizzle(sql, { schema });
     const file = join(mediaRoot, 'sample.mp4');
     await writeFile(file, Buffer.from('0123456789'));
@@ -310,6 +318,16 @@ test('API isolates hidden media, validates bodies, serves local ranges and resum
           .statusCode,
         404,
       );
+    assert.equal(
+      (
+        await app.inject({
+          method: 'POST',
+          url: `/api/kids/media/${hiddenId}/telemetry`,
+          payload: { views: 1, seconds: 1 },
+        })
+      ).statusCode,
+      404,
+    );
     await db
       .update(schema.mediaItems)
       .set({ visible: true })
@@ -322,6 +340,56 @@ test('API isolates hidden media, validates bodies, serves local ranges and resum
       (await app.inject({ url: `/api/kids/media/${hiddenId}` })).statusCode,
       200,
     );
+    assert.equal(
+      (
+        await app.inject({
+          method: 'POST',
+          url: `/api/kids/media/${hiddenId}/telemetry`,
+          payload: { views: 1, seconds: 3 },
+        })
+      ).statusCode,
+      204,
+    );
+    assert.equal(
+      (
+        await app.inject({
+          method: 'POST',
+          url: `/api/kids/media/${hiddenId}/telemetry`,
+          payload: { views: 0, seconds: 4 },
+        })
+      ).statusCode,
+      204,
+    );
+    assert.equal(
+      (
+        await app.inject({
+          method: 'POST',
+          url: `/api/kids/media/${hiddenId}/telemetry`,
+          payload: { views: 0, seconds: 31 },
+        })
+      ).statusCode,
+      400,
+    );
+    assert.equal(
+      (await app.inject({ url: '/api/admin/telemetry' })).statusCode,
+      401,
+    );
+    const telemetry = await app.inject({
+      url: '/api/admin/telemetry',
+      headers: admin,
+    });
+    assert.equal(telemetry.statusCode, 200);
+    assert.deepEqual(telemetry.json().videos, [
+      { mediaId: hiddenId, title: 'Hidden', views: 1 },
+      { mediaId: automatic!.id, title: 'Automatic first', views: 0 },
+      { mediaId: outside!.id, title: 'Outside', views: 0 },
+    ]);
+    assert.deepEqual(telemetry.json().daily, [
+      {
+        date: new Date().toISOString().slice(0, 10),
+        seconds: 7,
+      },
+    ]);
     const bytes = await app.inject({
       url: `/api/kids/media/${hiddenId}/play`,
       headers: { range: 'bytes=-3' },

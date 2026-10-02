@@ -1,5 +1,6 @@
 import {
   boolean,
+  date,
   doublePrecision,
   integer,
   pgTable,
@@ -133,6 +134,18 @@ export const sessions = pgTable('sessions', {
   tokenHash: text('token_hash').notNull().unique(),
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
   ...timestamps,
+});
+
+export const telemetryDaily = pgTable('telemetry_daily', {
+  day: date('day', { mode: 'string' }).primaryKey(),
+  seconds: integer('seconds').default(0).notNull(),
+});
+
+export const telemetryVideoViews = pgTable('telemetry_video_views', {
+  mediaItemId: uuid('media_item_id')
+    .primaryKey()
+    .references(() => mediaItems.id, { onDelete: 'cascade' }),
+  views: integer('views').default(0).notNull(),
 });
 
 export type CategoryRow = typeof categories.$inferSelect;

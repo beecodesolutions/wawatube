@@ -99,6 +99,8 @@ La integración está basada en Tube Archivist **v0.5.12**, Elasticsearch **8.19
 
 Al actualizar una instalación existente para habilitar playlists, ejecutar `pnpm db:migrate` antes de compilar y reiniciar la aplicación. La migración agrega el registro persistente de importaciones de playlists.
 
+La vista **Uso** de la zona de adultos registra segundos de reproducción por día UTC y visualizaciones por video. En instalaciones existentes, ejecutar `pnpm db:migrate` antes de reiniciar para crear las tablas de telemetría.
+
 `LOCAL_MEDIA_ROOT` relativo se resuelve desde la raíz del proyecto. Puede apuntar a una carpeta externa. Identificadores locales son rutas relativas internas: mover toda la raíz conserva referencias; renombrar/mover un archivo dentro de ella requiere actualizar su registro. El servidor rechaza traversal y enlaces simbólicos que salgan de la raíz. No otorgar a usuarios no confiables permisos de escritura sobre ella.
 
 Miniatura local opcional: mismo nombre con extensión `.jpg` o `.png`, por ejemplo `viaje.mp4` + `viaje.jpg`. Si falta, FFmpeg guarda una captura del primer fotograma en `.wawatube-thumbnails/` dentro de `LOCAL_MEDIA_ROOT`; esa carpeta debe permitir escritura. ffprobe extrae metadata; no hay transcodificación del video. Un contenedor admitido no garantiza codecs reproducibles: MP4 H.264/AAC suele ser la opción más interoperable. Si el navegador rechaza un archivo, convertirlo externamente.

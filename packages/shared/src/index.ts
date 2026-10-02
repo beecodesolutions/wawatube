@@ -18,6 +18,14 @@ export interface ChildMedia {
   thumbnailUrl: string | null;
   playbackUrl: string;
 }
+export interface PlaybackTelemetry {
+  views: 0 | 1;
+  seconds: number;
+}
+export interface TelemetryReport {
+  daily: { date: string; seconds: number }[];
+  videos: { mediaId: string; title: string; views: number }[];
+}
 export interface AdminMedia extends ChildMedia {
   sourceType: SourceType;
   visible: boolean;

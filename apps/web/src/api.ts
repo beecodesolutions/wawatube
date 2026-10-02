@@ -10,6 +10,8 @@ import type {
   MediaUpdate,
   PlaylistImportJob,
   PlaylistImportRequest,
+  PlaybackTelemetry,
+  TelemetryReport,
 } from '@wawatube/shared';
 
 export class ApiRequestError extends Error {
@@ -83,10 +85,16 @@ export const api = {
     ),
   childMedia: (id: string) =>
     request<ChildMedia>(`/api/kids/media/${encodeURIComponent(id)}`),
+  childTelemetry: (id: string, telemetry: PlaybackTelemetry) =>
+    request<void>(`/api/kids/media/${encodeURIComponent(id)}/telemetry`, {
+      ...json(telemetry),
+      keepalive: true,
+    }),
   session: () => request<{ authenticated: boolean }>('/api/admin/auth/session'),
   login: (pin: string) => request<void>('/api/admin/auth/login', json({ pin })),
   logout: () => request<void>('/api/admin/auth/logout', { method: 'POST' }),
   adminMedia: () => request<LibraryResponse>('/api/admin/media'),
+  adminTelemetry: () => request<TelemetryReport>('/api/admin/telemetry'),
   updateMedia: (id: string, update: MediaUpdate) =>
     request<AdminMedia>(`/api/admin/media/${encodeURIComponent(id)}`, {
       method: 'PATCH',

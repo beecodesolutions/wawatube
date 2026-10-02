@@ -20,6 +20,7 @@ import { ParentBrand } from '../../components/Shared';
 import { AdminLibrary } from './ParentLibrary';
 import { AdminCategories } from './ParentCategories';
 import { ParentLogin } from './ParentLogin';
+import { AdminTelemetry } from './ParentTelemetry';
 
 export function ParentApp() {
   const { t } = useTranslation();
@@ -82,6 +83,7 @@ export function ParentApp() {
             <Route index element={<Navigate to="library" replace />} />
             <Route path="library" element={<AdminLibrary />} />
             <Route path="categories" element={<AdminCategories />} />
+            <Route path="telemetry" element={<AdminTelemetry />} />
             <Route path="*" element={<Navigate to="library" replace />} />
           </Routes>
         </ParentFrame>
@@ -140,6 +142,9 @@ function ParentFrame({
             </Button>
             <Button component={NavLink} to="categories" color="inherit">
               {t('nav.categories')}
+            </Button>
+            <Button component={NavLink} to="telemetry" color="inherit">
+              {t('nav.telemetry')}
             </Button>
             <Button
               onClick={() => {
