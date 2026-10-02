@@ -75,11 +75,6 @@ export function ParentLogin({ onLoggedIn }: { onLoggedIn: () => void }) {
                 display: 'flex',
                 gap: 1.5,
                 borderRadius: 2,
-                '&:focus-within': {
-                  outline: '3px solid',
-                  outlineColor: 'primary.main',
-                  outlineOffset: 4,
-                },
               }}
             >
               <Box
