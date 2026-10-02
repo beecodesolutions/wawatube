@@ -8,7 +8,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
-import ThumbUpRoundedIcon from '@mui/icons-material/ThumbUpRounded';
+import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded';
 import WavingHandRoundedIcon from '@mui/icons-material/WavingHandRounded';
 import {
   MediaControlBar,
@@ -855,10 +855,12 @@ export function ChildPlayer() {
                         }}
                       >
                         <Stack alignItems="center" spacing={1}>
-                          <ThumbUpRoundedIcon
+                          <Box
                             aria-hidden
-                            sx={{ fontSize: 64 }}
-                          />
+                            sx={{ height: 80, display: 'flex', alignItems: 'center' }}
+                          >
+                            <PlayArrowRoundedIcon sx={{ fontSize: 72 }} />
+                          </Box>
                           <Typography sx={{ fontWeight: 800 }}>
                             {t('child.watchAnotherShort')}
                           </Typography>
@@ -879,11 +881,10 @@ export function ChildPlayer() {
                       >
                         <Stack alignItems="center" spacing={1}>
                           <Box
-                            component="span"
                             aria-hidden
-                            sx={{ fontSize: 64 }}
+                            sx={{ height: 80, display: 'flex', alignItems: 'center' }}
                           >
-                            👋
+                            <WavingHandRoundedIcon sx={{ fontSize: 72 }} />
                           </Box>
                           <Typography sx={{ fontWeight: 800 }}>
                             {t('child.finish')}
