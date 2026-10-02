@@ -363,7 +363,17 @@ function MediaCard({
       <CardActionArea
         component={Link}
         to={`/watch/${media.id}`}
-        state={{ categoryId }}
+        state={{ categoryId, autoFullscreen: true }}
+        onClick={(event) => {
+          if (
+            event.button !== 0 ||
+            event.metaKey ||
+            event.ctrlKey ||
+            event.shiftKey ||
+            event.altKey
+          ) return;
+          void document.documentElement.requestFullscreen?.().catch(() => {});
+        }}
       >
         <MediaThumbnail key={media.thumbnailUrl ?? 'fallback'} media={media} />
         <CardContent>
@@ -428,16 +438,18 @@ export function ChildPlayer() {
   const theme = useTheme();
   const { mediaId } = useParams();
   const location = useLocation();
-  const categoryId = (location.state as { categoryId?: unknown } | null)
-    ?.categoryId;
+  const playerState = location.state as {
+    categoryId?: unknown;
+    autoFullscreen?: unknown;
+  } | null;
+  const categoryId = playerState?.categoryId;
   const backTo =
     typeof categoryId === 'string' ? `/category/${categoryId}` : '/';
   const playerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const lastTap = useRef<{ at: number; side: 'left' | 'right' } | null>(null);
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(playerState?.autoFullscreen === true);
   const [playing, setPlaying] = useState(false);
-  const [muted, setMuted] = useState(false);
   const [media, setMedia] = useState<ChildMedia | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [ending, setEnding] = useState<'watching' | 'choice' | 'goodbye'>(
@@ -446,8 +458,9 @@ export function ChildPlayer() {
   useEffect(() => {
     const syncFullscreen = () =>
       setExpanded(
-        playerRef.current !== null &&
-          document.fullscreenElement === playerRef.current,
+        document.fullscreenElement === document.documentElement ||
+          (playerRef.current !== null &&
+            document.fullscreenElement === playerRef.current),
       );
     document.addEventListener('fullscreenchange', syncFullscreen);
     return () =>
@@ -472,7 +485,7 @@ export function ChildPlayer() {
 
   const toggleFullscreen = async () => {
     if (expanded) {
-      if (document.fullscreenElement === playerRef.current) {
+      if (document.fullscreenElement) {
         await document.exitFullscreen().catch(() => {});
       } else {
         setExpanded(false);
@@ -559,6 +572,7 @@ export function ChildPlayer() {
                   slot="media"
                   src={media.playbackUrl}
                   poster={media.thumbnailUrl ?? undefined}
+                  autoPlay
                   playsInline
                   onPlay={() => setPlaying(true)}
                   onPause={() => setPlaying(false)}
@@ -622,70 +636,43 @@ export function ChildPlayer() {
                   </MediaControlBar>
                 )}
                 {ending === 'watching' && (
-                  <Stack
-                    direction="row"
-                    spacing={2}
-                    sx={{ position: 'absolute', bottom: 72, left: 16 }}
+                  <IconButton
+                    onClick={() => {
+                      const video = videoRef.current;
+                      if (!video) return;
+                      if (video.paused)
+                        void video
+                          .play()
+                          .catch(() => setError(t('child.playerError')));
+                      else video.pause();
+                    }}
+                    aria-label={t(playing ? 'child.pause' : 'child.play')}
+                    sx={{
+                      position: 'absolute',
+                      top: '50%',
+                      left: '50%',
+                      transform: 'translate(-50%, -50%)',
+                      width: 112,
+                      height: 112,
+                      bgcolor: playing ? 'secondary.main' : 'primary.main',
+                      color: playing
+                        ? 'secondary.contrastText'
+                        : 'primary.contrastText',
+                      '&:hover': {
+                        bgcolor: playing ? 'secondary.dark' : 'primary.dark',
+                      },
+                    }}
                   >
-                    <IconButton
-                      onClick={() => {
-                        const video = videoRef.current;
-                        if (!video) return;
-                        if (video.paused)
-                          void video
-                            .play()
-                            .catch(() => setError(t('child.playerError')));
-                        else video.pause();
-                      }}
-                      aria-label={t(playing ? 'child.pause' : 'child.play')}
-                      sx={{
-                        width: 72,
-                        height: 72,
-                        bgcolor: 'primary.main',
-                        color: 'primary.contrastText',
-                        '&:hover': { bgcolor: 'primary.dark' },
-                      }}
-                    >
-                      <SvgIcon aria-hidden sx={{ fontSize: 44 }}>
-                        <path
-                          d={
-                            playing
-                              ? 'M6 4h4v16H6zm8 0h4v16h-4z'
-                              : 'M8 5v14l11-7z'
-                          }
-                        />
-                      </SvgIcon>
-                    </IconButton>
-                    <IconButton
-                      onClick={() => {
-                        const video = videoRef.current;
-                        if (!video) return;
-                        video.muted = !video.muted;
-                        setMuted(video.muted);
-                      }}
-                      aria-label={t(muted ? 'child.unmute' : 'child.mute')}
-                      sx={{
-                        width: 64,
-                        height: 64,
-                        bgcolor: (theme) => theme.palette.artwork.overlay,
-                        color: (theme) => theme.palette.artwork.onOverlay,
-                        '&:hover': {
-                          bgcolor: (theme) =>
-                            theme.palette.artwork.overlayHover,
-                        },
-                      }}
-                    >
-                      <SvgIcon aria-hidden sx={{ fontSize: 38 }}>
-                        <path
-                          d={
-                            muted
-                              ? 'M3 9v6h4l5 5V4L7 9H3zm12.5 3 3.5-3.5-1.5-1.5L14 10.5 10.5 7 9 8.5l3.5 3.5L9 15.5l1.5 1.5L14 13.5l3.5 3.5 1.5-1.5z'
-                              : 'M3 9v6h4l5 5V4L7 9H3zm11.5-5.5v2.1a7 7 0 0 1 0 12.8v2.1a9 9 0 0 0 0-17z'
-                          }
-                        />
-                      </SvgIcon>
-                    </IconButton>
-                  </Stack>
+                    <SvgIcon aria-hidden sx={{ fontSize: 72 }}>
+                      <path
+                        d={
+                          playing
+                            ? 'M6 4h4v16H6zm8 0h4v16h-4z'
+                            : 'M8 5v14l11-7z'
+                        }
+                      />
+                    </SvgIcon>
+                  </IconButton>
                 )}
                 {ending === 'watching' && (
                   <IconButton

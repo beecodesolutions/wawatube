@@ -23,7 +23,7 @@ declare module '@mui/material/styles' {
 
 export const childTheme = createTheme({
   palette: {
-    primary: { main: '#355c7d', contrastText: '#fffdf8' },
+    primary: { main: '#36785b', contrastText: '#fffdf8' },
     secondary: { main: '#a65337', contrastText: '#fffdf8' },
     background: { default: '#fff3cb', paper: '#fffaf0' },
     text: { primary: '#25323b', secondary: '#5d6263' },

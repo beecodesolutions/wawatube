@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Box, CssBaseline, ThemeProvider } from '@mui/material';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import {
@@ -9,7 +10,20 @@ import { ParentApp } from './features/parent/ParentRoutes';
 import { childTheme, parentTheme } from './theme';
 
 export function App() {
-  const parent = useLocation().pathname.startsWith('/parent');
+  const { pathname } = useLocation();
+  const parent = pathname.startsWith('/parent');
+  useEffect(() => {
+    const favicon = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+    if (favicon) favicon.href = parent ? '/logo-parent.webp' : '/logo-child.webp';
+  }, [parent]);
+  useEffect(() => {
+    if (
+      !pathname.startsWith('/watch') &&
+      document.fullscreenElement === document.documentElement
+    ) {
+      void document.exitFullscreen().catch(() => {});
+    }
+  }, [pathname]);
   return (
     <ThemeProvider theme={parent ? parentTheme : childTheme}>
       <CssBaseline />
