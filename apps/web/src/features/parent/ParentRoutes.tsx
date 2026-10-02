@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   AppBar,
@@ -24,17 +24,16 @@ import { ParentLogin } from './ParentLogin';
 export function ParentApp() {
   const { t } = useTranslation();
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
+  const entryLogout = useRef<Promise<void> | null>(null);
   useEffect(() => {
     const unsubscribe = subscribeUnauthorized(() => setAuthenticated(false));
     let active = true;
-    void api
-      .session()
-      .then((session) => {
-        if (active) setAuthenticated(session.authenticated);
-      })
-      .catch(() => {
-        if (active) setAuthenticated(false);
-      });
+    entryLogout.current ??= api.logout().catch(() => {
+      // Login remains available if the server is temporarily unreachable.
+    });
+    void entryLogout.current.then(() => {
+      if (active) setAuthenticated(false);
+    });
     return () => {
       active = false;
       unsubscribe();

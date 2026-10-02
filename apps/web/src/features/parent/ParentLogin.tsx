@@ -1,13 +1,11 @@
-import { useState, type FormEvent } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Alert,
   Box,
-  Button,
   CircularProgress,
   Paper,
   Stack,
-  TextField,
   Typography,
 } from '@mui/material';
 import { api, errorText } from '../../api';
@@ -18,15 +16,15 @@ export function ParentLogin({ onLoggedIn }: { onLoggedIn: () => void }) {
   const [pin, setPin] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const submit = async (event: FormEvent) => {
-    event.preventDefault();
+  const submit = async (enteredPin: string) => {
     setBusy(true);
     setError(null);
     try {
-      await api.login(pin);
+      await api.login(enteredPin);
       onLoggedIn();
     } catch (reason: unknown) {
       setError(errorText(reason, t));
+      setPin('');
     } finally {
       setBusy(false);
     }
@@ -60,11 +58,7 @@ export function ParentLogin({ onLoggedIn }: { onLoggedIn: () => void }) {
       <Box
         sx={{ flex: 1, width: '100%', display: 'grid', placeItems: 'center' }}
       >
-        <Paper
-          component="form"
-          onSubmit={submit}
-          sx={{ p: { xs: 3, sm: 5 }, width: 'min(100%, 430px)' }}
-        >
+        <Paper sx={{ p: { xs: 3, sm: 5 }, width: 'min(100%, 430px)' }}>
           <Stack spacing={3}>
             <Stack spacing={1}>
               <Typography variant="h1" sx={{ fontSize: '2.5rem' }}>
@@ -75,28 +69,70 @@ export function ParentLogin({ onLoggedIn }: { onLoggedIn: () => void }) {
               </Typography>
             </Stack>
             {error ? <Alert severity="error">{error}</Alert> : null}
-            <TextField
-              autoFocus
-              fullWidth
-              required
-              label={t('parent.pinLabel')}
-              type="password"
-              value={pin}
-              onChange={(event) => setPin(event.target.value)}
-              inputProps={{ inputMode: 'numeric' }}
-            />
-            <Button
-              type="submit"
-              variant="contained"
-              size="large"
-              disabled={busy}
+            <Box
+              sx={{
+                position: 'relative',
+                display: 'flex',
+                gap: 1.5,
+                borderRadius: 2,
+                '&:focus-within': {
+                  outline: '3px solid',
+                  outlineColor: 'primary.main',
+                  outlineOffset: 4,
+                },
+              }}
             >
-              {busy ? (
-                <CircularProgress size={22} color="inherit" />
-              ) : (
-                t('parent.enter')
-              )}
-            </Button>
+              <Box
+                component="input"
+                autoFocus
+                aria-label={t('parent.pinLabel')}
+                autoComplete="one-time-code"
+                inputMode="numeric"
+                maxLength={4}
+                type="text"
+                value={pin}
+                readOnly={busy}
+                onChange={(event) => {
+                  const nextPin = event.target.value
+                    .replace(/\D/g, '')
+                    .slice(0, 4);
+                  setPin(nextPin);
+                  if (nextPin.length === 4) void submit(nextPin);
+                }}
+                sx={{
+                  position: 'absolute',
+                  inset: 0,
+                  width: '100%',
+                  opacity: 0,
+                  zIndex: 1,
+                  cursor: 'text',
+                }}
+              />
+              {Array.from({ length: 4 }, (_, index) => (
+                <Box
+                  key={index}
+                  aria-hidden="true"
+                  sx={{
+                    flex: 1,
+                    height: 76,
+                    display: 'grid',
+                    placeItems: 'center',
+                    border: 2,
+                    borderColor:
+                      index === pin.length ? 'primary.main' : 'divider',
+                    borderRadius: 2,
+                    fontSize: '2rem',
+                    fontWeight: 700,
+                    bgcolor: 'background.paper',
+                  }}
+                >
+                  {pin[index] ? '●' : ''}
+                </Box>
+              ))}
+            </Box>
+            {busy ? (
+              <CircularProgress aria-label={t('common.loading')} />
+            ) : null}
           </Stack>
         </Paper>
       </Box>
