@@ -32,7 +32,17 @@ export function ParentApp() {
     entryLogout.current ??= api.logout().catch(() => {
       // Login remains available if the server is temporarily unreachable.
     });
-    void entryLogout.current.then(() => {
+    void entryLogout.current.then(async () => {
+      try {
+        const { pinRequired } = await api.session();
+        if (!pinRequired) {
+          await api.login('dev');
+          if (active) setAuthenticated(true);
+          return;
+        }
+      } catch {
+        // Keep the PIN form available if the API is unreachable.
+      }
       if (active) setAuthenticated(false);
     });
     return () => {

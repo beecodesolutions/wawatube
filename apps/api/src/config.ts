@@ -12,6 +12,7 @@ export interface AppConfig {
   publicOrigin: string;
   sessionHours: number;
   secureCookies: boolean;
+  skipParentPin: boolean;
   ffprobePath: string;
 }
 
@@ -64,6 +65,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     ),
     sessionHours,
     secureCookies: value('SECURE_COOKIES', 'false').toLowerCase() === 'true',
+    skipParentPin:
+      value('NODE_ENV') === 'development' &&
+      value('DEV_SKIP_PARENT_PIN').toLowerCase() === 'true',
     ffprobePath: value('FFPROBE_PATH', 'ffprobe'),
   };
 }

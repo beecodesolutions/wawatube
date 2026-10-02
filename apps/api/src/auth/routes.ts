@@ -43,6 +43,7 @@ export function registerAuthRoutes(
 ): void {
   app.get('/api/admin/auth/session', async (request) => ({
     authenticated: await validSession(db, sessionToken(request)),
+    pinRequired: !config.skipParentPin,
   }));
   app.post<{ Body: { pin: string } }>(
     '/api/admin/auth/login',
@@ -51,11 +52,19 @@ export function registerAuthRoutes(
       const key = request.ip;
       const current = attempts.get(key);
       const now = Date.now();
-      if (current && current.resetAt > now && current.count >= 5)
+      if (
+        !config.skipParentPin &&
+        current &&
+        current.resetAt > now &&
+        current.count >= 5
+      )
         return reply.code(429).send({ code: 'LOGIN_THROTTLED' });
       const pin = request.body?.pin;
-      const hash = await configuredPin(db);
-      if (!pin || !hash || !(await verifyPin(pin, hash))) {
+      const hash = config.skipParentPin ? null : await configuredPin(db);
+      if (
+        !config.skipParentPin &&
+        (!pin || !hash || !(await verifyPin(pin, hash)))
+      ) {
         const next =
           current && current.resetAt > now
             ? { count: current.count + 1, resetAt: current.resetAt }

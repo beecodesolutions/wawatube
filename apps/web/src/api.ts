@@ -98,7 +98,10 @@ export const api = {
       ...json(telemetry),
       keepalive: true,
     }),
-  session: () => request<{ authenticated: boolean }>('/api/admin/auth/session'),
+  session: () =>
+    request<{ authenticated: boolean; pinRequired: boolean }>(
+      '/api/admin/auth/session',
+    ),
   login: (pin: string) => request<void>('/api/admin/auth/login', json({ pin })),
   logout: () => request<void>('/api/admin/auth/logout', { method: 'POST' }),
   adminMedia: () => request<LibraryResponse>('/api/admin/media'),

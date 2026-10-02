@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/server.ts",
+    "dev": "NODE_ENV=development tsx watch src/server.ts",
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test test/**/*.test.ts src/providers/**/*.test.ts",
