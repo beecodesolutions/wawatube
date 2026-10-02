@@ -15,6 +15,7 @@ import {
   playlistImports,
   mediaCategories,
   mediaItems,
+  telemetryVideoViews,
   type MediaRow,
 } from '../db/schema.js';
 import { ApiFailure } from '../http/errors.js';
@@ -209,7 +210,7 @@ export class LibraryService {
     if (!row) throw new ApiFailure(404, 'MEDIA_NOT_FOUND');
     return row;
   }
-  async adminMedia(row: MediaRow): Promise<AdminMedia> {
+  async adminMedia(row: MediaRow, views = 0): Promise<AdminMedia> {
     const links = await this.db
       .select({ id: mediaCategories.categoryId })
       .from(mediaCategories)
@@ -225,6 +226,8 @@ export class LibraryService {
           ? `/api/admin/media/${row.id}/thumbnail`
           : null,
       sourceType: sourceType(row.sourceType),
+      createdAt: row.createdAt.toISOString(),
+      views,
       visible: row.visible,
       sortOrder: row.sortOrder,
       categoryIds: links.map((link) => link.id),
@@ -236,7 +239,13 @@ export class LibraryService {
       .select()
       .from(mediaItems)
       .orderBy(desc(mediaItems.createdAt));
-    const list = await Promise.all(rows.map((row) => this.adminMedia(row)));
+    const viewRows = await this.db.select().from(telemetryVideoViews);
+    const viewsById = new Map(
+      viewRows.map((row) => [row.mediaItemId, row.views]),
+    );
+    const list = await Promise.all(
+      rows.map((row) => this.adminMedia(row, viewsById.get(row.id) ?? 0)),
+    );
     const pending = await this.db
       .select()
       .from(imports)
@@ -371,6 +380,10 @@ export class LibraryService {
             })),
           );
       }
+      const [viewRow] = await tx
+        .select({ views: telemetryVideoViews.views })
+        .from(telemetryVideoViews)
+        .where(eq(telemetryVideoViews.mediaItemId, id));
       return {
         ...childMedia(row),
         thumbnailUrl:
@@ -378,6 +391,8 @@ export class LibraryService {
             ? `/api/admin/media/${row.id}/thumbnail`
             : null,
         sourceType: sourceType(row.sourceType),
+        createdAt: row.createdAt.toISOString(),
+        views: viewRow?.views ?? 0,
         visible: row.visible,
         sortOrder: row.sortOrder,
         categoryIds:

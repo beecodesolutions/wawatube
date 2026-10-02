@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import YouTubeIcon from '@mui/icons-material/YouTube';
+import FolderRoundedIcon from '@mui/icons-material/FolderRounded';
+import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded';
 import {
   Alert,
   Box,
@@ -51,6 +54,7 @@ export function AdminLibrary() {
   const [selectedImport, setSelectedImport] = useState<ImportJob | null>(null);
   const [search, setSearch] = useState('');
   const [categoryId, setCategoryId] = useState('');
+  const [sortBy, setSortBy] = useState<'name' | 'added' | 'views'>('added');
   useEffect(() => {
     let active = true;
     const load = async () => {
@@ -91,13 +95,21 @@ export function AdminLibrary() {
     };
   }, [refreshKey, t]);
   const refresh = () => setRefreshKey((value) => value + 1);
-  const videos = library?.media.filter(
-    (media) =>
-      media.title
-        .toLocaleLowerCase()
-        .includes(search.trim().toLocaleLowerCase()) &&
-      (!categoryId || media.categoryIds.includes(categoryId)),
-  );
+  const videos = library?.media
+    .filter(
+      (media) =>
+        media.title
+          .toLocaleLowerCase()
+          .includes(search.trim().toLocaleLowerCase()) &&
+        (!categoryId || media.categoryIds.includes(categoryId)),
+    )
+    .sort((a, b) =>
+      sortBy === 'name'
+        ? a.title.localeCompare(b.title)
+        : sortBy === 'views'
+          ? b.views - a.views || a.title.localeCompare(b.title)
+          : b.createdAt.localeCompare(a.createdAt),
+    );
   const imports = library?.imports.filter((job) => job.state !== 'READY');
   const playlistImports = library?.playlistImports.filter(
     (job) =>
@@ -166,6 +178,19 @@ export function AdminLibrary() {
                 </MenuItem>
               ))}
             </TextField>
+            <TextField
+              select
+              label={t('parent.sortVideos')}
+              value={sortBy}
+              onChange={(event) =>
+                setSortBy(event.target.value as 'name' | 'added' | 'views')
+              }
+              sx={{ minWidth: 220 }}
+            >
+              <MenuItem value="name">{t('parent.sortName')}</MenuItem>
+              <MenuItem value="added">{t('parent.sortAdded')}</MenuItem>
+              <MenuItem value="views">{t('parent.sortViews')}</MenuItem>
+            </TextField>
           </Stack>
           {videos?.length === 0 ? (
             <EmptyState
@@ -233,14 +258,22 @@ export function AdminLibrary() {
                         flexWrap="wrap"
                         sx={{ mt: 1 }}
                       >
-                        <Chip
-                          size="small"
-                          label={
-                            media.visible
-                              ? t('common.visible')
-                              : t('common.hidden')
-                          }
-                        />
+                        {media.categoryIds.length ? (
+                          media.categoryIds.map((id) => {
+                            const category = categories.find(
+                              (item) => item.id === id,
+                            );
+                            return category ? (
+                              <Chip
+                                key={id}
+                                size="small"
+                                label={`${category.icon} ${category.name}`}
+                              />
+                            ) : null;
+                          })
+                        ) : (
+                          <Chip size="small" label={t('parent.noCategory')} />
+                        )}
                         {media.availability !== 'AVAILABLE' ? (
                           <Chip
                             size="small"
@@ -248,6 +281,42 @@ export function AdminLibrary() {
                             label={t(`status.${media.availability}`)}
                           />
                         ) : null}
+                      </Stack>
+                      <Stack
+                        direction="row"
+                        alignItems="center"
+                        spacing={1.5}
+                        sx={{ mt: 1 }}
+                      >
+                        {media.sourceType === 'YOUTUBE' ? (
+                          <YouTubeIcon
+                            fontSize="small"
+                            sx={{ color: '#f00' }}
+                            aria-label={t('status.YOUTUBE')}
+                          />
+                        ) : (
+                          <FolderRoundedIcon
+                            fontSize="small"
+                            color="primary"
+                            aria-label={t('status.LOCAL')}
+                          />
+                        )}
+                        <Stack
+                          direction="row"
+                          alignItems="center"
+                          spacing={0.5}
+                          aria-label={t('parent.viewCount', {
+                            count: media.views,
+                          })}
+                        >
+                          <VisibilityRoundedIcon
+                            fontSize="small"
+                            color="action"
+                          />
+                          <Typography variant="body2" color="text.secondary">
+                            {media.views}
+                          </Typography>
+                        </Stack>
                       </Stack>
                     </CardContent>
                   </CardActionArea>

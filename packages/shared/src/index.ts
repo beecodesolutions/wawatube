@@ -28,6 +28,8 @@ export interface TelemetryReport {
 }
 export interface AdminMedia extends ChildMedia {
   sourceType: SourceType;
+  createdAt: string;
+  views: number;
   visible: boolean;
   sortOrder: number;
   categoryIds: string[];
