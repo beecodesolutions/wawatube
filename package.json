@@ -7,7 +7,7 @@
     "node": ">=24 <25"
   },
   "scripts": {
-    "dev": "pnpm --parallel --filter @wawatube/api --filter @wawatube/web dev",
+    "dev": "PORT=3102 PUBLIC_ORIGIN=http://localhost:3102 pnpm --parallel --filter @wawatube/api --filter @wawatube/web dev",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck && tsc -p scripts/tsconfig.json",
     "test": "pnpm --filter @wawatube/api test",

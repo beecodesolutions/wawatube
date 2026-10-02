@@ -68,7 +68,7 @@ pnpm dev
 
 Usamos `--env-file .env` explícito: evita depender del directorio desde donde Compose busque variables. La aplicación se ejecuta directamente en el host; Docker contiene solamente PostgreSQL, Redis, Elasticsearch y Tube Archivist.
 
-Vite sirve la UI en el puerto que indique su salida y delega `/api` al puerto API `3100`. Configurar `PUBLIC_ORIGIN` con la URL exacta usada en el navegador (incluido puerto) y reiniciar API al cambiarla. No usar un origen comodín.
+`pnpm dev` levanta Vite en `http://localhost:5173` y una API con recarga automática en `:3102`. Vite delega `/api` a esa API. El servicio persistente sigue en `:3100` y sirve la última compilación; no hace falta detenerlo para desarrollar. Ambos procesos comparten la base de datos y los archivos media configurados en `.env`. Si el puerto `5173` está ocupado, Vite falla en vez de abrir otro puerto silenciosamente. Para acceder desde la LAN, usar `http://IP-LAN:5173`. `PUBLIC_ORIGIN` en `.env` corresponde al servicio persistente; `pnpm dev` usa su propio valor para `:3102`.
 
 ```bash
 docker compose --env-file .env -f docker/docker-compose.yml down
