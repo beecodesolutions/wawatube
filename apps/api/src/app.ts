@@ -142,7 +142,11 @@ export function createApp(options: AppOptions): FastifyInstance {
   app.addHook('onRequest', async (request, reply) => {
     if (!['POST', 'PATCH', 'DELETE', 'PUT'].includes(request.method)) return;
     const origin = request.headers.origin;
-    if (origin && origin !== config.publicOrigin)
+    if (
+      origin &&
+      origin !== config.publicOrigin &&
+      origin !== `http://${request.headers.host}`
+    )
       return reply.code(403).send({ code: 'INVALID_ORIGIN' });
   });
   registerErrorHandler(app);

@@ -107,6 +107,29 @@ test('API isolates hidden media, validates bodies, serves local ranges and resum
       imports,
     });
     await app.ready();
+    const login = {
+      method: 'POST' as const,
+      url: '/api/admin/auth/login',
+      payload: { pin: '0000' },
+    };
+    assert.equal(
+      (
+        await app.inject({
+          ...login,
+          headers: { host: 'localhost:3100', origin: 'http://localhost:3100' },
+        })
+      ).statusCode,
+      401,
+    );
+    assert.equal(
+      (
+        await app.inject({
+          ...login,
+          headers: { host: 'localhost:3100', origin: 'https://evil.example' },
+        })
+      ).statusCode,
+      403,
+    );
     const session = await createSession(db, 1);
     const cookie = `wawatube_session=${session.token}`;
     const admin = { cookie };
