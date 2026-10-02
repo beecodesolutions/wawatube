@@ -17,14 +17,15 @@ export class TelemetryService {
     if (!views && !seconds) return;
     const day = new Date().toISOString().slice(0, 10);
     await this.db.transaction(async (tx) => {
-      if (seconds)
+      if (seconds || views)
         await tx
           .insert(telemetryDaily)
-          .values({ day, seconds })
+          .values({ day, seconds, views })
           .onConflictDoUpdate({
             target: telemetryDaily.day,
             set: {
               seconds: sql`${telemetryDaily.seconds} + ${seconds}`,
+              views: sql`${telemetryDaily.views} + ${views}`,
             },
           });
       if (views)
@@ -43,13 +44,19 @@ export class TelemetryService {
   async report(): Promise<TelemetryReport> {
     const [daily, videos] = await Promise.all([
       this.db
-        .select({ date: telemetryDaily.day, seconds: telemetryDaily.seconds })
+        .select({
+          date: telemetryDaily.day,
+          seconds: telemetryDaily.seconds,
+          views: telemetryDaily.views,
+        })
         .from(telemetryDaily)
         .orderBy(asc(telemetryDaily.day)),
       this.db
         .select({
           mediaId: mediaItems.id,
           title: mediaItems.title,
+          thumbnailRef: mediaItems.thumbnailRef,
+          sourceType: mediaItems.sourceType,
           views: sql<number>`coalesce(${telemetryVideoViews.views}, 0)`,
         })
         .from(mediaItems)
@@ -62,6 +69,15 @@ export class TelemetryService {
           asc(mediaItems.title),
         ),
     ]);
-    return { daily, videos };
+    return {
+      daily,
+      videos: videos.map(({ thumbnailRef, sourceType, ...video }) => ({
+        ...video,
+        thumbnailUrl:
+          thumbnailRef || sourceType === 'LOCAL'
+            ? `/api/admin/media/${video.mediaId}/thumbnail`
+            : null,
+      })),
+    };
   }
 }

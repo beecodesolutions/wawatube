@@ -59,6 +59,17 @@ test('API isolates hidden media, validates bodies, serves local ranges and resum
       [],
       { prepare: false },
     );
+    await sql.unsafe(
+      await readFile(
+        new URL(
+          '../migrations/0005_telemetry_daily_views.sql',
+          import.meta.url,
+        ),
+        'utf8',
+      ),
+      [],
+      { prepare: false },
+    );
     const db = drizzle(sql, { schema });
     const file = join(mediaRoot, 'sample.mp4');
     await writeFile(file, Buffer.from('0123456789'));
@@ -403,14 +414,30 @@ test('API isolates hidden media, validates bodies, serves local ranges and resum
     });
     assert.equal(telemetry.statusCode, 200);
     assert.deepEqual(telemetry.json().videos, [
-      { mediaId: hiddenId, title: 'Hidden', views: 1 },
-      { mediaId: automatic!.id, title: 'Automatic first', views: 0 },
-      { mediaId: outside!.id, title: 'Outside', views: 0 },
+      {
+        mediaId: hiddenId,
+        title: 'Hidden',
+        views: 1,
+        thumbnailUrl: `/api/admin/media/${hiddenId}/thumbnail`,
+      },
+      {
+        mediaId: automatic!.id,
+        title: 'Automatic first',
+        views: 0,
+        thumbnailUrl: `/api/admin/media/${automatic!.id}/thumbnail`,
+      },
+      {
+        mediaId: outside!.id,
+        title: 'Outside',
+        views: 0,
+        thumbnailUrl: `/api/admin/media/${outside!.id}/thumbnail`,
+      },
     ]);
     assert.deepEqual(telemetry.json().daily, [
       {
         date: new Date().toISOString().slice(0, 10),
         seconds: 7,
+        views: 1,
       },
     ]);
     const bytes = await app.inject({

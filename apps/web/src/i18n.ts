@@ -154,6 +154,8 @@ const resources = {
         telemetryTime: 'Tiempo visto',
         telemetryViews: 'Reproducciones',
         telemetryDaily: 'Tiempo por día (UTC)',
+        telemetryToday: 'Hoy (UTC)',
+        telemetryYesterday: 'Ayer (UTC)',
         telemetryDate: 'Día',
         telemetryVideos: 'Videos más vistos',
         telemetryNoData: 'Todavía no hay datos.',

@@ -13,8 +13,43 @@ import {
   Typography,
 } from '@mui/material';
 import type { TelemetryReport } from '@wawatube/shared';
+import {
+  Bar,
+  CartesianGrid,
+  ComposedChart,
+  Line,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 import { api, errorText } from '../../api';
 import { EmptyState, ErrorState, LoadingState } from '../../components/Shared';
+
+const dayKey = (date: Date) => date.toISOString().slice(0, 10);
+
+function lastSevenDays(daily: TelemetryReport['daily']) {
+  const today = new Date();
+  const byDate = new Map(daily.map((day) => [day.date, day]));
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(
+      Date.UTC(
+        today.getUTCFullYear(),
+        today.getUTCMonth(),
+        today.getUTCDate() - 6 + index,
+      ),
+    );
+    return (
+      byDate.get(dayKey(date)) ?? { date: dayKey(date), seconds: 0, views: 0 }
+    );
+  });
+}
+
+function formatDuration(seconds: number) {
+  const minutes = Math.round(Math.max(0, seconds) / 60);
+  const hours = Math.floor(minutes / 60);
+  return hours ? `${hours} h ${minutes % 60} min` : `${minutes} min`;
+}
 
 export function AdminTelemetry() {
   const { t } = useTranslation();
@@ -40,10 +75,7 @@ export function AdminTelemetry() {
     };
   }, [reload, t]);
 
-  const totalSeconds =
-    telemetry?.daily.reduce((sum, day) => sum + day.seconds, 0) ?? 0;
-  const totalViews =
-    telemetry?.videos.reduce((sum, video) => sum + video.views, 0) ?? 0;
+  const days = telemetry ? lastSevenDays(telemetry.daily) : [];
 
   return (
     <Stack spacing={4}>
@@ -74,99 +106,147 @@ export function AdminTelemetry() {
               gap: 1.5,
             }}
           >
-            <Summary
-              value={formatDuration(totalSeconds)}
-              label={t('parent.telemetryTime')}
-            />
-            <Summary
-              value={String(totalViews)}
-              label={t('parent.telemetryViews')}
-            />
+            {days
+              .slice(-2)
+              .reverse()
+              .map((day, index) => (
+                <Paper key={day.date} sx={{ p: 2 }}>
+                  <Typography variant="h6">
+                    {index === 0
+                      ? t('parent.telemetryToday')
+                      : t('parent.telemetryYesterday')}
+                  </Typography>
+                  <Typography variant="h4" sx={{ fontWeight: 900 }}>
+                    {formatDuration(day.seconds)}
+                  </Typography>
+                  <Typography color="text.secondary">
+                    {t('parent.telemetryTime')}
+                  </Typography>
+                  <Typography variant="h5" sx={{ mt: 1 }}>
+                    {day.views}
+                  </Typography>
+                  <Typography color="text.secondary">
+                    {t('parent.telemetryViews')}
+                  </Typography>
+                </Paper>
+              ))}
           </Box>
-          <TelemetryTable
-            title={t('parent.telemetryDaily')}
-            headers={[t('parent.telemetryDate'), t('parent.telemetryTime')]}
-            noData={t('parent.telemetryNoData')}
-            rows={telemetry.daily.map((day) => [
-              day.date,
-              formatDuration(day.seconds),
-            ])}
-          />
-          <TelemetryTable
-            title={t('parent.telemetryVideos')}
-            headers={[t('parent.mediaTitle'), t('parent.telemetryViews')]}
-            noData={t('parent.telemetryNoData')}
-            rows={telemetry.videos.map((video) => [
-              video.title,
-              String(video.views),
-            ])}
-          />
+          <Stack spacing={1}>
+            <Typography
+              variant="h2"
+              sx={{ fontSize: { xs: '1.6rem', md: '2rem' } }}
+            >
+              {t('parent.telemetryDaily')}
+            </Typography>
+            <DailyChart days={days} label={t('parent.telemetryTime')} />
+          </Stack>
+          <Stack spacing={1}>
+            <Typography
+              variant="h2"
+              sx={{ fontSize: { xs: '1.6rem', md: '2rem' } }}
+            >
+              {t('parent.telemetryVideos')}
+            </Typography>
+            {telemetry.videos.length === 0 ? (
+              <EmptyState text={t('parent.telemetryNoData')} />
+            ) : (
+              <TableContainer component={Paper}>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>{t('parent.mediaTitle')}</TableCell>
+                      <TableCell align="right">
+                        {t('parent.telemetryViews')}
+                      </TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {telemetry.videos.map((video) => (
+                      <TableRow key={video.mediaId}>
+                        <TableCell>
+                          <Stack
+                            direction="row"
+                            spacing={1.5}
+                            alignItems="center"
+                          >
+                            {video.thumbnailUrl && (
+                              <Box
+                                component="img"
+                                src={video.thumbnailUrl}
+                                alt=""
+                                sx={{
+                                  width: 88,
+                                  height: 50,
+                                  objectFit: 'cover',
+                                  borderRadius: 1,
+                                  flexShrink: 0,
+                                }}
+                              />
+                            )}
+                            <span>{video.title}</span>
+                          </Stack>
+                        </TableCell>
+                        <TableCell align="right">{video.views}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
+          </Stack>
         </>
       )}
     </Stack>
   );
 }
 
-function Summary({ value, label }: { value: string; label: string }) {
+function DailyChart({
+  days,
+  label,
+}: {
+  days: TelemetryReport['daily'];
+  label: string;
+}) {
+  const data = days.map((day) => ({
+    date: day.date,
+    day: day.date.slice(5),
+    minutes: Math.round(day.seconds / 60),
+  }));
   return (
-    <Paper sx={{ p: 2 }}>
-      <Typography variant="h4" sx={{ fontWeight: 900 }}>
-        {value}
-      </Typography>
-      <Typography color="text.secondary">{label}</Typography>
+    <Paper sx={{ p: 2, height: 300 }}>
+      <Box
+        role="img"
+        aria-label={`${label}: ${data.map((day) => `${day.date} ${day.minutes} min`).join(', ')}`}
+        sx={{ width: '100%', height: '100%' }}
+      >
+        <ResponsiveContainer width="100%" height="100%">
+          <ComposedChart
+            data={data}
+            margin={{ top: 12, right: 12, bottom: 4, left: 0 }}
+          >
+            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+            <XAxis dataKey="day" />
+            <YAxis allowDecimals={false} unit=" min" width={65} />
+            <Tooltip
+              formatter={(value) => `${value} min`}
+              labelFormatter={(_, payload) => payload[0]?.payload.date ?? ''}
+            />
+            <Bar
+              dataKey="minutes"
+              name={label}
+              fill="#8e78d5"
+              radius={[4, 4, 0, 0]}
+            />
+            <Line
+              dataKey="minutes"
+              name={label}
+              stroke="#49338e"
+              strokeWidth={3}
+              dot={{ r: 4 }}
+            />
+          </ComposedChart>
+        </ResponsiveContainer>
+      </Box>
     </Paper>
   );
-}
-
-function TelemetryTable({
-  title,
-  headers,
-  noData,
-  rows,
-}: {
-  title: string;
-  headers: [string, string];
-  noData: string;
-  rows: Array<[string, string]>;
-}) {
-  return (
-    <Stack spacing={1}>
-      <Typography variant="h2" sx={{ fontSize: { xs: '1.6rem', md: '2rem' } }}>
-        {title}
-      </Typography>
-      {rows.length === 0 ? (
-        <EmptyState text={noData} />
-      ) : (
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                {headers.map((header) => (
-                  <TableCell key={header}>{header}</TableCell>
-                ))}
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {rows.map(([first, second], index) => (
-                <TableRow key={`${first}-${second}-${index}`}>
-                  <TableCell>{first}</TableCell>
-                  <TableCell>{second}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
-    </Stack>
-  );
-}
-
-function formatDuration(seconds: number): string {
-  const totalSeconds = Math.max(0, Math.floor(seconds));
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const remaining = totalSeconds % 60;
-  return hours > 0
-    ? `${hours} h ${minutes} min`
-    : `${minutes} min ${String(remaining).padStart(2, '0')} s`;
 }

@@ -23,8 +23,13 @@ export interface PlaybackTelemetry {
   seconds: number;
 }
 export interface TelemetryReport {
-  daily: { date: string; seconds: number }[];
-  videos: { mediaId: string; title: string; views: number }[];
+  daily: { date: string; seconds: number; views: number }[];
+  videos: {
+    mediaId: string;
+    title: string;
+    views: number;
+    thumbnailUrl: string | null;
+  }[];
 }
 export interface AdminMedia extends ChildMedia {
   sourceType: SourceType;
