@@ -121,10 +121,7 @@
               boundsBefore.height === boundsAfter.height,
             'Ending preserves player dimensions',
           );
-          assert(
-            choice().textContent.includes('¿Quieres ver otro?'),
-            'Question',
-          );
+          assert(choice().textContent.includes('¿Qué hacemos?'), 'Question');
           assert(
             yes().getAttribute('aria-label') === 'Sí' &&
               no().getAttribute('aria-label') === 'No',

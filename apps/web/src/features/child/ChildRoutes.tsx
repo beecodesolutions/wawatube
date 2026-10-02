@@ -8,7 +8,6 @@ import {
 import { useTranslation } from 'react-i18next';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
-import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded';
 import WavingHandRoundedIcon from '@mui/icons-material/WavingHandRounded';
 import {
   MediaControlBar,
@@ -40,6 +39,7 @@ import {
   ErrorState,
   LoadingState,
 } from '../../components/Shared';
+import { SmartDisplay } from '@mui/icons-material';
 
 export const THUMBNAIL_RETRY_DELAYS_MS = [1000, 3000, 10000] as const;
 
@@ -857,9 +857,13 @@ export function ChildPlayer() {
                         <Stack alignItems="center" spacing={1}>
                           <Box
                             aria-hidden
-                            sx={{ height: 80, display: 'flex', alignItems: 'center' }}
+                            sx={{
+                              height: 80,
+                              display: 'flex',
+                              alignItems: 'center',
+                            }}
                           >
-                            <PlayArrowRoundedIcon sx={{ fontSize: 72 }} />
+                            <SmartDisplay sx={{ fontSize: 72 }} />
                           </Box>
                           <Typography sx={{ fontWeight: 800 }}>
                             {t('child.watchAnotherShort')}
@@ -882,7 +886,11 @@ export function ChildPlayer() {
                         <Stack alignItems="center" spacing={1}>
                           <Box
                             aria-hidden
-                            sx={{ height: 80, display: 'flex', alignItems: 'center' }}
+                            sx={{
+                              height: 80,
+                              display: 'flex',
+                              alignItems: 'center',
+                            }}
                           >
                             <WavingHandRoundedIcon sx={{ fontSize: 72 }} />
                           </Box>
