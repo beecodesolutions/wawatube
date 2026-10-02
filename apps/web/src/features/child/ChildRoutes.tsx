@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import ThumbUpRoundedIcon from '@mui/icons-material/ThumbUpRounded';
+import WavingHandRoundedIcon from '@mui/icons-material/WavingHandRounded';
 import {
   MediaControlBar,
   MediaController,
@@ -796,16 +797,50 @@ export function ChildPlayer() {
                       </Button>
                     </Stack>
                   ) : (
-                    <Button
-                      component={Link}
-                      to="/"
-                      replace
-                      variant="contained"
-                      aria-label={t('nav.home')}
-                      sx={{ minWidth: 160, minHeight: 112, fontSize: '4rem' }}
+                    <Box
+                      role="img"
+                      aria-label={t('child.goodbye')}
+                      sx={{ position: 'relative', display: 'inline-block' }}
                     >
-                      <span aria-hidden>🏠</span>
-                    </Button>
+                      <Box
+                        component="img"
+                        src="/logo-child.webp"
+                        alt=""
+                        sx={{
+                          width: { xs: 200, sm: 280 },
+                          maxWidth: '100%',
+                          animation: 'mascotBob 2.4s ease-in-out infinite',
+                          '@keyframes mascotBob': {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-7px)' },
+                          },
+                          '@media (prefers-reduced-motion: reduce)': {
+                            animation: 'none',
+                          },
+                        }}
+                      />
+                      <WavingHandRoundedIcon
+                        aria-hidden="true"
+                        sx={{
+                          position: 'absolute',
+                          right: { xs: -15, sm: -22 },
+                          top: { xs: 32, sm: 44 },
+                          fontSize: { xs: 64, sm: 86 },
+                          color: '#ffc627',
+                          filter: 'drop-shadow(0 3px 0 #075678)',
+                          transformOrigin: '25% 90%',
+                          animation: 'mascotWave 2.4s ease-in-out infinite',
+                          '@keyframes mascotWave': {
+                            '0%, 45%, 100%': { transform: 'rotate(0deg)' },
+                            '55%, 75%': { transform: 'rotate(-22deg)' },
+                            '65%, 85%': { transform: 'rotate(12deg)' },
+                          },
+                          '@media (prefers-reduced-motion: reduce)': {
+                            animation: 'none',
+                          },
+                        }}
+                      />
+                    </Box>
                   )}
                 </DialogContent>
               </Dialog>
