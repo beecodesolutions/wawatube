@@ -133,12 +133,7 @@ export function AdminLibrary() {
           : b.createdAt.localeCompare(a.createdAt),
     );
   const imports = library?.imports.filter((job) => job.state !== 'READY');
-  const playlistImports = library?.playlistImports.filter(
-    (job) =>
-      job.state === 'EXTRACTING' ||
-      job.state === 'FAILED' ||
-      job.downloadedCount < job.videoCount,
-  );
+  const playlistImports = library?.playlistImports;
   const downloadsCount =
     (imports?.length ?? 0) + (playlistImports?.length ?? 0);
 
