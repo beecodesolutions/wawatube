@@ -93,6 +93,7 @@ export function YoutubeImporter({
   const [playlistCategoryId, setPlaylistCategoryId] = useState('');
   const [visible, setVisible] = useState(true);
   const [playlistVisible, setPlaylistVisible] = useState(true);
+  const [playlistMonitor, setPlaylistMonitor] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [playlistSuccess, setPlaylistSuccess] = useState(false);
@@ -118,6 +119,7 @@ export function YoutubeImporter({
     const input: PlaylistImportRequest = {
       url: playlistUrl,
       visible: playlistVisible,
+      monitor: playlistMonitor,
       ...(playlistCategoryId ? { categoryId: playlistCategoryId } : {}),
     };
     try {
@@ -320,6 +322,18 @@ export function YoutubeImporter({
                   />
                 }
                 label={t('parent.visibility')}
+              />
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={playlistMonitor}
+                    disabled={busy}
+                    onChange={(event) =>
+                      setPlaylistMonitor(event.target.checked)
+                    }
+                  />
+                }
+                label={t('parent.playlistMonitor')}
               />
               <Button type="submit" variant="contained" disabled={busy}>
                 {busy ? (
@@ -534,6 +548,18 @@ export function PlaylistImportStatus({
       setBusy(false);
     }
   };
+  const setMonitor = async (monitor: boolean) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await api.setPlaylistMonitor(job.id, monitor);
+      onChanged();
+    } catch (reason: unknown) {
+      setError(errorText(reason, t));
+    } finally {
+      setBusy(false);
+    }
+  };
   const importError = job.errorCode
     ? t(`errors.${job.errorCode}`, { defaultValue: t('errors.import_failed') })
     : null;
@@ -564,6 +590,18 @@ export function PlaylistImportStatus({
             {job.title ?? t('parent.playlistFallbackTitle')}
           </Typography>
           <Chip size="small" label={statusLabel} />
+          <FormControlLabel
+            control={
+              <Switch
+                checked={job.monitor}
+                disabled={busy}
+                onChange={(event) => {
+                  void setMonitor(event.target.checked);
+                }}
+              />
+            }
+            label={t('parent.playlistMonitor')}
+          />
           {job.state === 'EXTRACTING' && !hasKnownTotal ? (
             <>
               <Typography color="text.secondary" variant="body2" sx={{ mt: 1 }}>

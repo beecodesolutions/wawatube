@@ -104,6 +104,10 @@ const resources = {
         importMode: 'Tipo de importación',
         videoMode: 'Video',
         playlistMode: 'Playlist',
+        playlistMonitor: 'Revisar novedades cada hora',
+        refreshAllPlaylists: 'Actualizar todas las playlists',
+        refreshingPlaylists: 'Actualizando playlists…',
+        playlistsQueued: '{{count}} playlists en actualización',
         videoModeHint:
           'En modo Video se importa solo el video de la URL, aunque también tenga una playlist.',
         playlistHint:

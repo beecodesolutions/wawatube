@@ -54,6 +54,7 @@ export interface PlaylistImportRequest {
   url: string;
   categoryId?: string;
   visible: boolean;
+  monitor: boolean;
 }
 export interface PlaylistImportJob {
   id: string;
@@ -65,6 +66,8 @@ export interface PlaylistImportJob {
   failedCount: number;
   pendingCount: number;
   errorCode: string | null;
+  monitor: boolean;
+  lastCheckedAt: string | null;
 }
 export interface LibraryResponse {
   media: AdminMedia[];

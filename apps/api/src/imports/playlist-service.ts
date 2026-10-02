@@ -1,4 +1,4 @@
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, isNull, lt, or } from 'drizzle-orm';
 import type { PlaylistImportJob } from '@wawatube/shared';
 import type { Database } from '../db/index.js';
 import {
@@ -13,12 +13,14 @@ import { ImportService } from './service.js';
 import { playlistImportDto } from '../library/service.js';
 
 const PLAYLIST_TIMEOUT = 30 * 60_000;
+const MONITOR_INTERVAL = 60 * 60_000;
 
 const playlistUrl = (playlistId: string): string =>
   `https://www.youtube.com/playlist?list=${encodeURIComponent(playlistId)}`;
 
 export class PlaylistImportService {
   private running = false;
+  private refreshRequested = false;
 
   constructor(
     private readonly db: Database,
@@ -40,6 +42,7 @@ export class PlaylistImportService {
     playlistId: string,
     categoryId: string | undefined,
     visible: boolean,
+    monitor: boolean,
   ): Promise<PlaylistImportJob> {
     if (categoryId) {
       const found = await this.db
@@ -70,6 +73,8 @@ export class PlaylistImportService {
           taskId: null,
           categoryId: nextCategoryId,
           visible,
+          monitor,
+          lastCheckedAt: new Date(),
           errorCode: null,
           updatedAt: new Date(),
         })
@@ -89,6 +94,8 @@ export class PlaylistImportService {
         state: 'EXTRACTING',
         categoryId: categoryId ?? null,
         visible,
+        monitor,
+        lastCheckedAt: new Date(),
       })
       .onConflictDoNothing()
       .returning();
@@ -113,6 +120,7 @@ export class PlaylistImportService {
         state: 'EXTRACTING',
         taskId: null,
         errorCode: null,
+        lastCheckedAt: new Date(),
         updatedAt: new Date(),
       })
       .where(
@@ -126,6 +134,47 @@ export class PlaylistImportService {
     if (this.running) return;
     this.running = true;
     try {
+      const due = await this.db
+        .select({ id: playlistImports.id })
+        .from(playlistImports)
+        .where(
+          and(
+            eq(playlistImports.monitor, true),
+            inArray(playlistImports.state, ['READY', 'FAILED']),
+            or(
+              isNull(playlistImports.lastCheckedAt),
+              lt(
+                playlistImports.lastCheckedAt,
+                new Date(Date.now() - MONITOR_INTERVAL),
+              ),
+            ),
+          ),
+        );
+      for (const { id } of due) {
+        await this.db
+          .update(playlistImports)
+          .set({
+            state: 'EXTRACTING',
+            taskId: null,
+            errorCode: null,
+            lastCheckedAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(playlistImports.id, id),
+              eq(playlistImports.monitor, true),
+              inArray(playlistImports.state, ['READY', 'FAILED']),
+              or(
+                isNull(playlistImports.lastCheckedAt),
+                lt(
+                  playlistImports.lastCheckedAt,
+                  new Date(Date.now() - MONITOR_INTERVAL),
+                ),
+              ),
+            ),
+          );
+      }
       const rows = await this.db
         .select()
         .from(playlistImports)
@@ -133,7 +182,45 @@ export class PlaylistImportService {
       for (const row of rows) await this.process(row);
     } finally {
       this.running = false;
+      if (this.refreshRequested) {
+        this.refreshRequested = false;
+        void this.reconcile().catch((error) =>
+          console.error('playlist refresh failed', error),
+        );
+      }
     }
+  }
+
+  async refreshAll(): Promise<{ count: number }> {
+    const rows = await this.db
+      .update(playlistImports)
+      .set({
+        state: 'EXTRACTING',
+        taskId: null,
+        errorCode: null,
+        lastCheckedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(inArray(playlistImports.state, ['READY', 'FAILED']))
+      .returning({ id: playlistImports.id });
+    if (rows.length) {
+      if (this.running) this.refreshRequested = true;
+      else
+        void this.reconcile().catch((error) =>
+          console.error('playlist refresh failed', error),
+        );
+    }
+    return { count: rows.length };
+  }
+
+  async setMonitor(id: string, monitor: boolean): Promise<PlaylistImportJob> {
+    const [updated] = await this.db
+      .update(playlistImports)
+      .set({ monitor, lastCheckedAt: monitor ? null : undefined })
+      .where(eq(playlistImports.id, id))
+      .returning();
+    if (!updated) throw new ApiFailure(404, 'PLAYLIST_IMPORT_NOT_FOUND');
+    return playlistImportDto(updated);
   }
 
   private async process(row: PlaylistImportRow): Promise<void> {

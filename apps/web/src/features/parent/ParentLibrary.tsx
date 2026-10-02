@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import YouTubeIcon from '@mui/icons-material/YouTube';
 import FolderRoundedIcon from '@mui/icons-material/FolderRounded';
 import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded';
+import SyncRoundedIcon from '@mui/icons-material/SyncRounded';
 import {
   Alert,
   Box,
@@ -55,6 +56,13 @@ export function AdminLibrary() {
   const [search, setSearch] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [sortBy, setSortBy] = useState<'name' | 'added' | 'views'>('added');
+  const [refreshingPlaylists, setRefreshingPlaylists] = useState(false);
+  const [playlistRefreshResult, setPlaylistRefreshResult] = useState<
+    number | null
+  >(null);
+  const [playlistRefreshError, setPlaylistRefreshError] = useState<
+    string | null
+  >(null);
   useEffect(() => {
     let active = true;
     const load = async () => {
@@ -95,6 +103,20 @@ export function AdminLibrary() {
     };
   }, [refreshKey, t]);
   const refresh = () => setRefreshKey((value) => value + 1);
+  const refreshAllPlaylists = async () => {
+    setRefreshingPlaylists(true);
+    setPlaylistRefreshError(null);
+    setPlaylistRefreshResult(null);
+    try {
+      const result = await api.refreshAllPlaylists();
+      setPlaylistRefreshResult(result.count);
+      refresh();
+    } catch (reason: unknown) {
+      setPlaylistRefreshError(errorText(reason, t));
+    } finally {
+      setRefreshingPlaylists(false);
+    }
+  };
   const videos = library?.media
     .filter(
       (media) =>
@@ -328,7 +350,30 @@ export function AdminLibrary() {
       ) : null}
       {tab === 'downloads' && library ? (
         <Stack spacing={2}>
-          {downloadsCount === 0 ? (
+          {library.playlistImports.length ? (
+            <Button
+              variant="outlined"
+              startIcon={<SyncRoundedIcon />}
+              disabled={refreshingPlaylists}
+              onClick={() => {
+                void refreshAllPlaylists();
+              }}
+              sx={{ alignSelf: 'flex-start' }}
+            >
+              {refreshingPlaylists
+                ? t('parent.refreshingPlaylists')
+                : t('parent.refreshAllPlaylists')}
+            </Button>
+          ) : null}
+          {playlistRefreshResult !== null ? (
+            <Alert severity="success">
+              {t('parent.playlistsQueued', { count: playlistRefreshResult })}
+            </Alert>
+          ) : null}
+          {playlistRefreshError ? (
+            <Alert severity="error">{playlistRefreshError}</Alert>
+          ) : null}
+          {downloadsCount === 0 && !library?.playlistImports.length ? (
             <EmptyState text={t('parent.noImports')} />
           ) : null}
           {imports?.map((job) => (
@@ -346,7 +391,7 @@ export function AdminLibrary() {
               }
             />
           ))}
-          {playlistImports?.map((job) => (
+          {library?.playlistImports.map((job) => (
             <PlaylistImportStatus key={job.id} job={job} onChanged={refresh} />
           ))}
         </Stack>

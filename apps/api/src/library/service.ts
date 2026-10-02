@@ -52,6 +52,8 @@ export const playlistImportDto = (
   failedCount: 0,
   pendingCount: row.videoIds.length,
   errorCode: row.errorCode,
+  monitor: row.monitor,
+  lastCheckedAt: row.lastCheckedAt?.toISOString() ?? null,
 });
 
 export class LibraryService {

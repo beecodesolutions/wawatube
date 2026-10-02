@@ -31,6 +31,8 @@ test('playlist imports persist extraction, preserve categories, and retry member
       '0000_init.sql',
       '0001_playlist_imports.sql',
       '0002_category_thumbnails.sql',
+      '0003_telemetry.sql',
+      '0004_playlist_monitor.sql',
     ])
       await sql.unsafe(
         await readFile(
@@ -124,6 +126,7 @@ test('playlist imports persist extraction, preserve categories, and retry member
         url: 'https://www.youtube.com/playlist?list=PL12345678',
         categoryId: categoryB!.id,
         visible: false,
+        monitor: false,
       },
     };
     assert.equal((await app.inject(request)).statusCode, 401);
@@ -146,6 +149,7 @@ test('playlist imports persist extraction, preserve categories, and retry member
         categoryId: '00000000-0000-4000-8000-000000000000',
       },
       { ...request.payload, visible: 'true' },
+      { ...request.payload, monitor: 'true' },
     ])
       assert.equal(
         (await app.inject({ ...request, headers, payload })).statusCode,
@@ -156,12 +160,15 @@ test('playlist imports persist extraction, preserve categories, and retry member
     const started = response.json();
     assert.equal(started.state, 'EXTRACTING');
     assert.equal(
-      (await playlists.start('PL12345678', categoryB!.id, false)).id,
+      (await playlists.start('PL12345678', categoryB!.id, false, false)).id,
       started.id,
     );
-    await assert.rejects(playlists.start('PL12345678', undefined, false), {
-      code: 'PLAYLIST_IMPORT_IN_PROGRESS',
-    });
+    await assert.rejects(
+      playlists.start('PL12345678', undefined, false, false),
+      {
+        code: 'PLAYLIST_IMPORT_IN_PROGRESS',
+      },
+    );
     await playlists.reconcile();
     assert.equal((await playlists.job(started.id)).state, 'EXTRACTING');
     assert.equal((await playlists.job(started.id)).title, 'Playlist');
@@ -209,7 +216,12 @@ test('playlist imports persist extraction, preserve categories, and retry member
     assert.equal(progress.failedCount, 1);
     assert.equal(progress.pendingCount, 1);
 
-    const duplicate = await playlists.start('PL12345678', categoryB!.id, false);
+    const duplicate = await playlists.start(
+      'PL12345678',
+      categoryB!.id,
+      false,
+      false,
+    );
     assert.equal(duplicate.id, started.id);
     assert.equal((await db.select().from(schema.imports)).length, 2);
     await playlists.reconcile();
@@ -231,6 +243,7 @@ test('playlist imports persist extraction, preserve categories, and retry member
       payload: {
         url: 'https://www.youtube.com/playlist?list=PL87654321',
         visible: true,
+        monitor: false,
       },
     });
     assert.equal(optional.statusCode, 202);
@@ -281,9 +294,62 @@ test('playlist imports persist extraction, preserve categories, and retry member
       [categoryB!.id],
     );
 
+    const monitorUrl = `/api/admin/playlist-import/${started.id}/monitor`;
+    assert.equal(
+      (
+        await app.inject({
+          method: 'PATCH',
+          url: monitorUrl,
+          payload: { monitor: true },
+        })
+      ).statusCode,
+      401,
+    );
+    assert.equal(
+      (
+        await app.inject({
+          method: 'PATCH',
+          url: monitorUrl,
+          headers,
+          payload: { monitor: 'true' },
+        })
+      ).statusCode,
+      400,
+    );
+    assert.equal(
+      (
+        await app.inject({
+          method: 'PATCH',
+          url: monitorUrl,
+          headers,
+          payload: { monitor: true },
+        })
+      ).statusCode,
+      200,
+    );
+    members = [existingId, newId, 'kJQP7kiw5Fk'];
+    await playlists.reconcile();
+    assert.equal((await playlists.job(started.id)).state, 'READY');
+    assert.equal((await playlists.job(started.id)).videoIds.length, 3);
+    assert.equal((await db.select().from(schema.imports)).length, 4);
+    assert.equal(
+      (
+        await app.inject({
+          method: 'PATCH',
+          url: monitorUrl,
+          headers,
+          payload: { monitor: false },
+        })
+      ).statusCode,
+      200,
+    );
+    members = [...members, 'ZZ5LpwO-An4'];
+    await playlists.reconcile();
+    assert.equal((await playlists.job(started.id)).videoIds.length, 3);
+
     // Completed upstream tasks must not reuse stale/empty playlist metadata.
     lastRefresh = () => 1;
-    const stale = await playlists.start('PLSTALE123', undefined, true);
+    const stale = await playlists.start('PLSTALE123', undefined, true, false);
     await playlists.reconcile();
     assert.equal((await playlists.job(stale.id)).errorCode, 'PLAYLIST_STALE');
     lastRefresh = () => Math.floor(Date.now() / 1000) + 1;
@@ -292,7 +358,7 @@ test('playlist imports persist extraction, preserve categories, and retry member
     await playlists.reconcile();
     assert.equal((await playlists.job(stale.id)).errorCode, 'PLAYLIST_EMPTY');
     // Expired upstream tasks surface retryable failure rather than waiting forever.
-    const timeout = await playlists.start('PLTIMEOUT1', undefined, true);
+    const timeout = await playlists.start('PLTIMEOUT1', undefined, true, false);
     await db
       .update(schema.playlistImports)
       .set({

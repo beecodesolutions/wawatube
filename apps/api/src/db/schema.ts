@@ -116,6 +116,8 @@ export const playlistImports = pgTable(
       onDelete: 'set null',
     }),
     visible: boolean('visible').default(false).notNull(),
+    monitor: boolean('monitor').default(false).notNull(),
+    lastCheckedAt: timestamp('last_checked_at', { withTimezone: true }),
     errorCode: text('error_code'),
     ...timestamps,
   },

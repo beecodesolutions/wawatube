@@ -68,13 +68,23 @@ export const youtubeImportBody = {
 export const youtubePlaylistImportBody = {
   body: {
     type: 'object',
-    required: ['url', 'visible'],
+    required: ['url', 'visible', 'monitor'],
     additionalProperties: false,
     properties: {
       url: { type: 'string', minLength: 1, maxLength: 2048 },
       categoryId: { type: 'string', pattern: idPattern },
       visible: { type: 'boolean' },
+      monitor: { type: 'boolean' },
     },
+  },
+} as const;
+export const playlistMonitorBody = {
+  ...idParams,
+  body: {
+    type: 'object',
+    required: ['monitor'],
+    additionalProperties: false,
+    properties: { monitor: { type: 'boolean' } },
   },
 } as const;
 export const confirmationBody = {

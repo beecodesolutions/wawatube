@@ -140,6 +140,16 @@ export const api = {
       `/api/admin/playlist-import/${encodeURIComponent(id)}/retry`,
       json({}),
     ),
+  setPlaylistMonitor: (id: string, monitor: boolean) =>
+    request<PlaylistImportJob>(
+      `/api/admin/playlist-import/${encodeURIComponent(id)}/monitor`,
+      { method: 'PATCH', body: JSON.stringify({ monitor }) },
+    ),
+  refreshAllPlaylists: () =>
+    request<{ count: number }>(
+      '/api/admin/playlist-import/refresh-all',
+      json({}),
+    ),
   importThumbnail: (id: string) =>
     `/api/admin/import/${encodeURIComponent(id)}/thumbnail`,
   localCandidates: () =>

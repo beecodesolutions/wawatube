@@ -83,7 +83,7 @@ await playlistImports.reconcile().catch((error) => app.log.error(error));
 const timer = setInterval(() => {
   void imports.reconcile().catch((error) => app.log.error(error));
   void playlistImports.reconcile().catch((error) => app.log.error(error));
-}, 30_000);
+}, 5 * 60_000);
 const close = async () => {
   clearInterval(timer);
   await app.close();

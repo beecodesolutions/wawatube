@@ -26,6 +26,7 @@ import {
   localImportBody,
   youtubeImportBody,
   youtubePlaylistImportBody,
+  playlistMonitorBody,
   confirmationBody,
   telemetryBody,
 } from './http/schemas.js';
@@ -284,7 +285,12 @@ export function createApp(options: AppOptions): FastifyInstance {
           .send(await imports.start(youtubeIdFromUrl(request.body.url))),
     );
     admin.post<{
-      Body: { url: string; categoryId?: string; visible: boolean };
+      Body: {
+        url: string;
+        categoryId?: string;
+        visible: boolean;
+        monitor: boolean;
+      };
     }>(
       '/api/admin/import/youtube/playlist',
       { schema: youtubePlaylistImportBody },
@@ -296,6 +302,7 @@ export function createApp(options: AppOptions): FastifyInstance {
               youtubePlaylistIdFromUrl(request.body.url),
               request.body.categoryId,
               request.body.visible,
+              request.body.monitor,
             ),
           ),
     );
@@ -328,6 +335,15 @@ export function createApp(options: AppOptions): FastifyInstance {
       '/api/admin/playlist-import/:id/retry',
       { schema: idParams },
       (request) => playlistImports.retry(id(request.params.id)),
+    );
+    admin.patch<{ Params: { id: string }; Body: { monitor: boolean } }>(
+      '/api/admin/playlist-import/:id/monitor',
+      { schema: playlistMonitorBody },
+      (request) =>
+        playlistImports.setMonitor(id(request.params.id), request.body.monitor),
+    );
+    admin.post('/api/admin/playlist-import/refresh-all', () =>
+      playlistImports.refreshAll(),
     );
   });
   return app;
