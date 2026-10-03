@@ -233,6 +233,14 @@ export class ImportService {
         })
         .where(eq(imports.id, existing!.id));
     });
+    const [queued] = await this.db
+      .select()
+      .from(imports)
+      .where(
+        and(eq(imports.sourceType, 'YOUTUBE'), eq(imports.sourceId, sourceId)),
+      )
+      .limit(1);
+    if (queued) await this.process(queued);
   }
   async retry(id: string): Promise<ImportJob> {
     const row = await this.job(id);

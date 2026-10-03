@@ -200,8 +200,10 @@ test('playlist imports persist extraction, preserve categories, and retry member
       ).length,
       2,
     );
-    await imports.reconcile();
+    // Playlist videos start as soon as extraction completes, before polling.
     assert.equal(queued, 1);
+    await imports.reconcile();
+    assert.equal(queued, 1); // Polling must not submit the same download again.
     const failed = await db
       .select()
       .from(schema.imports)
