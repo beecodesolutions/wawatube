@@ -24,6 +24,7 @@ export const categoryBody = {
     properties: {
       name: text,
       icon: text,
+      color: { type: 'string', pattern: '^#[0-9A-Fa-f]{6}$' },
       sortOrder: { type: 'integer' },
       thumbnailMediaId: {
         anyOf: [{ type: 'string', pattern: idPattern }, { type: 'null' }],

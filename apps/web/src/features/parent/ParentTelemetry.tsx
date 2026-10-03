@@ -55,16 +55,28 @@ function formatDuration(seconds: number) {
 export function AdminTelemetry() {
   const { t } = useTranslation();
   const [telemetry, setTelemetry] = useState<TelemetryReport | null>(null);
+  const [videoColors, setVideoColors] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
 
   useEffect(() => {
     let active = true;
-    void api
-      .adminTelemetry()
-      .then((data) => {
+    void Promise.all([api.adminTelemetry(), api.adminMedia(), api.categories()])
+      .then(([data, library, categories]) => {
+        const orderedCategories = [...categories].sort(
+          (a, b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id),
+        );
+        const colors: Record<string, string> = {};
+        for (const media of library.media) {
+          const category = orderedCategories.find((item) =>
+            media.categoryIds.includes(item.id),
+          );
+          const color = category?.color;
+          if (color) colors[media.id] = color;
+        }
         if (active) {
           setTelemetry(data);
+          setVideoColors(colors);
           setError(null);
         }
       })
@@ -145,6 +157,7 @@ export function AdminTelemetry() {
             </Typography>
             <DailyChart
               days={days}
+              videoColors={videoColors}
               label={t('parent.telemetryTime')}
               viewsLabel={t('parent.telemetryViews')}
               legacyLabel={t('parent.telemetryLegacy')}
@@ -248,20 +261,15 @@ function DailyChart({
   label,
   viewsLabel,
   legacyLabel,
+  videoColors,
 }: {
   days: TelemetryReport['daily'];
   label: string;
   viewsLabel: string;
   legacyLabel: string;
+  videoColors: Record<string, string>;
 }) {
   const theme = useTheme();
-  const colors = [
-    theme.palette.primary.main,
-    theme.palette.secondary.main,
-    theme.palette.success.main,
-    theme.palette.warning.main,
-    theme.palette.info.main,
-  ];
   const videos = [
     ...new Map(
       days
@@ -330,13 +338,15 @@ function DailyChart({
                 );
               }}
             />
-            {videos.map((video, index) => (
+            {videos.map((video) => (
               <Bar
                 key={video.mediaId}
                 dataKey={(day) => day.segments[video.mediaId] ?? 0}
                 stackId="time"
                 name={video.title}
-                fill={colors[index % colors.length]}
+                fill={videoColors[video.mediaId] ?? theme.palette.primary.main}
+                stroke={theme.palette.background.paper}
+                strokeWidth={1}
               />
             ))}
             <Bar

@@ -24,6 +24,7 @@ import { childMedia, type MediaGateway } from '../media-gateway.js';
 type CategoryThumbnail = Pick<Category, 'thumbnailMediaId' | 'thumbnailUrl'> & {
   selectedVisible: boolean;
 };
+const categoryColorPattern = /^#[0-9A-Fa-f]{6}$/;
 
 export const sourceType = (value: string): SourceType =>
   value === 'LOCAL' ? 'LOCAL' : 'YOUTUBE';
@@ -111,6 +112,7 @@ export class LibraryService {
       id: row.id,
       name: row.name,
       icon: row.icon,
+      color: row.color,
       sortOrder: row.sortOrder,
       thumbnailMediaId:
         exposeSelection || thumbnail.selectedVisible
@@ -306,10 +308,17 @@ export class LibraryService {
     const name = body.name.trim();
     const icon = body.icon.trim();
     if (!name || !icon) throw new ApiFailure(400, 'INVALID_REQUEST');
+    if (body.color !== undefined && !categoryColorPattern.test(body.color))
+      throw new ApiFailure(400, 'INVALID_REQUEST');
     if (body.thumbnailMediaId) throw new ApiFailure(400, 'INVALID_REQUEST');
     const [row] = await this.db
       .insert(categories)
-      .values({ name, icon, sortOrder: body.sortOrder ?? 0 })
+      .values({
+        name,
+        icon,
+        color: body.color ?? null,
+        sortOrder: body.sortOrder ?? 0,
+      })
       .returning();
     return this.categoryDto(row!);
   }
@@ -317,6 +326,8 @@ export class LibraryService {
     const name = body.name.trim();
     const icon = body.icon.trim();
     if (!name || !icon) throw new ApiFailure(400, 'INVALID_REQUEST');
+    if (body.color !== undefined && !categoryColorPattern.test(body.color))
+      throw new ApiFailure(400, 'INVALID_REQUEST');
     const row = await this.db.transaction(async (tx) => {
       if (body.thumbnailMediaId)
         await this.assertThumbnailMedia(tx, id, body.thumbnailMediaId);
@@ -326,6 +337,7 @@ export class LibraryService {
           name,
           icon,
           sortOrder: body.sortOrder ?? 0,
+          ...(body.color === undefined ? {} : { color: body.color }),
           ...(body.thumbnailMediaId === undefined
             ? {}
             : { thumbnailMediaId: body.thumbnailMediaId }),

@@ -12,17 +12,21 @@ import {
 } from '@mui/material';
 import type { AdminMedia, Category, CategoryInput } from '@wawatube/shared';
 import { api, errorText } from '../../api';
+import { useTheme } from '@mui/material/styles';
+import { emojiColor } from './emoji-color';
 import { EmptyState } from '../../components/Shared';
 
 const automaticThumbnailValue = '__automatic__';
 
 export function AdminCategories() {
   const { t } = useTranslation();
+  const theme = useTheme();
   const [categories, setCategories] = useState<Category[]>([]);
   const [media, setMedia] = useState<AdminMedia[]>([]);
   const [editing, setEditing] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [icon, setIcon] = useState('✨');
+  const [color, setColor] = useState<string | null>(null);
   const [sortOrder, setSortOrder] = useState('0');
   const [thumbnailMediaId, setThumbnailMediaId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -56,6 +60,7 @@ export function AdminCategories() {
     setEditing(null);
     setName('');
     setIcon('✨');
+    setColor(null);
     setSortOrder('0');
     setThumbnailMediaId(null);
   };
@@ -68,6 +73,7 @@ export function AdminCategories() {
       icon: icon.trim(),
       sortOrder: Number(sortOrder) || 0,
       thumbnailMediaId: effectiveThumbnailMediaId,
+      color: effectiveColor,
     };
     try {
       if (editing) await api.updateCategory(editing, input);
@@ -84,9 +90,12 @@ export function AdminCategories() {
     setEditing(category.id);
     setName(category.name);
     setIcon(category.icon);
+    setColor(category.color);
     setSortOrder(String(category.sortOrder));
     setThumbnailMediaId(category.thumbnailMediaId);
   };
+  const effectiveColor =
+    color ?? emojiColor(icon) ?? theme.palette.primary.main;
   const eligibleMedia = editing
     ? media
         .filter(
@@ -160,7 +169,10 @@ export function AdminCategories() {
               required
               label={t('parent.categoryIcon')}
               value={icon}
-              onChange={(event) => setIcon(event.target.value)}
+              onChange={(event) => {
+                setIcon(event.target.value);
+                setColor(null);
+              }}
             />
             <TextField
               type="number"
@@ -169,6 +181,18 @@ export function AdminCategories() {
               onChange={(event) => setSortOrder(event.target.value)}
             />
           </Box>
+          <Stack direction="row" spacing={2} alignItems="center">
+            <TextField
+              type="color"
+              label={t('parent.categoryColor')}
+              value={effectiveColor}
+              onChange={(event) => setColor(event.target.value)}
+              sx={{ width: 120 }}
+            />
+            <Button onClick={() => setColor(null)}>
+              {t('parent.categoryColorAutomatic')}
+            </Button>
+          </Stack>
           <TextField
             select
             label={t('parent.categoryThumbnail')}
@@ -241,6 +265,16 @@ export function AdminCategories() {
                 <Typography sx={{ flex: 1, fontWeight: 800 }}>
                   {category.name}
                 </Typography>
+                <Box
+                  aria-label={t('parent.categoryColor')}
+                  sx={{
+                    width: 24,
+                    height: 24,
+                    flexShrink: 0,
+                    borderRadius: '50%',
+                    bgcolor: category.color ?? theme.palette.primary.main,
+                  }}
+                />
                 <Typography color="text.secondary">
                   {category.sortOrder}
                 </Typography>

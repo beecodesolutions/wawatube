@@ -86,6 +86,8 @@ const resources = {
         categoriesHint: 'Ordená las categorías para la pantalla de inicio.',
         categoryName: 'Nombre',
         categoryIcon: 'Ícono',
+        categoryColor: 'Color',
+        categoryColorAutomatic: 'Usar color del emoji',
         categoryOrder: 'Orden',
         categoryThumbnail: 'Portada de categoría',
         categoryThumbnailAutomatic: 'Automática (primer video disponible)',

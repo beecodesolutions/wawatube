@@ -6,6 +6,7 @@ export interface Category {
   id: string;
   name: string;
   icon: string;
+  color: string | null;
   sortOrder: number;
   thumbnailMediaId: string | null;
   thumbnailUrl: string | null;
@@ -109,6 +110,7 @@ export interface MediaUpdate {
 export interface CategoryInput {
   name: string;
   icon: string;
+  color?: string;
   sortOrder?: number;
   thumbnailMediaId?: string | null;
 }

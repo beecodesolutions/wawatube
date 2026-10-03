@@ -14,6 +14,7 @@
       import { parentTheme } from '../src/theme.ts';
       import { api } from '../src/api.ts';
       import '../src/i18n.ts';
+      import { emojiColor } from '../src/features/parent/emoji-color.ts';
       // Fixture only; no API requests. Open at 320px and desktop widths.
       const date = new Date().toISOString().slice(0, 10);
       const title =
@@ -49,6 +50,16 @@
           { mediaId: 'c', title: 'SIN VISTAS', views: 0, thumbnailUrl: null },
         ],
       });
+      api.adminMedia = async () => ({
+        media: [
+          { id: 'a', categoryIds: ['nature'] },
+          { id: 'b', categoryIds: ['red'] },
+        ],
+      });
+      api.categories = async () => [
+        { id: 'nature', icon: '🌳', color: '#123456', sortOrder: 0 },
+        { id: 'red', icon: '🔴', color: '#ab3456', sortOrder: 1 },
+      ];
       createRoot(document.getElementById('root')).render(
         React.createElement(
           ThemeProvider,
@@ -60,7 +71,8 @@
       const check = setInterval(() => {
         if (
           !document.querySelector('tbody') ||
-          document.querySelectorAll('.recharts-bar').length !== 3
+          document.querySelectorAll('.recharts-bar').length !== 3 ||
+          document.querySelectorAll('.recharts-bar path').length < 3
         ) {
           if (++attempts > 100) throw new Error('UI timeout');
           return;
@@ -84,8 +96,17 @@
             document.querySelectorAll('.recharts-bar').length === 3,
             'Expected stacked video + legacy series',
           );
+          assert(!emojiColor(''), 'Empty emoji fallback');
+          const fill = (index) =>
+            document
+              .querySelectorAll('.recharts-bar')
+              [index].querySelector('path')
+              ?.getAttribute('fill');
+          assert(fill(0) === '#123456', 'Stored category color');
+          assert(fill(1) === '#ab3456', 'Manual category color');
+          assert(fill(0) !== fill(1), 'Distinct category colors');
           document.getElementById('result').textContent =
-            'OK: stacked, filas con vistas, sin overflow';
+            'OK: colores de emojis, stacked, filas con vistas, sin overflow';
         } catch (error) {
           document.getElementById('result').textContent =
             'ERROR: ' + error.message;

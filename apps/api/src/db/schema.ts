@@ -23,16 +23,27 @@ const timestamps = {
     .notNull(),
 };
 
-export const categories = pgTable('categories', {
-  id: id(),
-  name: text('name').notNull(),
-  icon: text('icon').notNull(),
-  sortOrder: integer('sort_order').default(0).notNull(),
-  thumbnailMediaId: uuid('thumbnail_media_id').references(() => mediaItems.id, {
-    onDelete: 'set null',
-  }),
-  ...timestamps,
-});
+export const categories = pgTable(
+  'categories',
+  {
+    id: id(),
+    name: text('name').notNull(),
+    icon: text('icon').notNull(),
+    color: text('color'),
+    sortOrder: integer('sort_order').default(0).notNull(),
+    thumbnailMediaId: uuid('thumbnail_media_id').references(
+      () => mediaItems.id,
+      { onDelete: 'set null' },
+    ),
+    ...timestamps,
+  },
+  (table) => [
+    check(
+      'category_color_check',
+      sql`${table.color} is null or ${table.color} ~ '^#[0-9A-Fa-f]{6}$'`,
+    ),
+  ],
+);
 
 export const mediaItems = pgTable(
   'media_items',

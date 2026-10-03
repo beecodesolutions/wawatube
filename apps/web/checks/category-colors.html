@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="es">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Comprobar colores de categorías</title>
+  <body>
+    <output id="result">Comprobando…</output>
+    <pre id="colors"></pre>
+    <div id="root"></div>
+    <script type="module">
+      import React from 'react';
+      import { createRoot } from 'react-dom/client';
+      import { ThemeProvider } from '@mui/material/styles';
+      import { AdminCategories } from '../src/features/parent/ParentCategories.tsx';
+      import { emojiColor } from '../src/features/parent/emoji-color.ts';
+      import { api } from '../src/api.ts';
+      import { parentTheme } from '../src/theme.ts';
+      import '../src/i18n.ts';
+      await document.fonts.ready;
+      const icons = ['🎶', '🐞', '🐯', '🚜', '🏛️'];
+      document.getElementById('colors').textContent = JSON.stringify(
+        Object.fromEntries(icons.map((icon) => [icon, emojiColor(icon)])),
+      );
+      const categories = [
+        {
+          id: 'nature',
+          name: 'Naturaleza',
+          icon: '🌳',
+          color: '#123456',
+          sortOrder: 0,
+          thumbnailMediaId: null,
+          thumbnailUrl: null,
+        },
+      ];
+      const saved = [];
+      api.categories = async () => [...categories];
+      api.adminMedia = async () => ({ media: [] });
+      api.createCategory = async (input) => {
+        saved.push(input);
+        categories.push({ id: 'new', ...input, thumbnailUrl: null });
+        return categories.at(-1);
+      };
+      api.updateCategory = async (id, input) => {
+        saved.push(input);
+        Object.assign(
+          categories.find((c) => c.id === id),
+          input,
+        );
+        return categories.find((c) => c.id === id);
+      };
+      createRoot(document.getElementById('root')).render(
+        React.createElement(
+          ThemeProvider,
+          { theme: parentTheme },
+          React.createElement(AdminCategories),
+        ),
+      );
+      const waitFor = async (fn) => {
+        for (let i = 0; i < 100; i++) {
+          if (fn()) return;
+          await new Promise((resolve) => setTimeout(resolve, 30));
+        }
+        throw new Error('UI timeout');
+      };
+      const assert = (value, message) => {
+        if (!value) throw new Error(message);
+      };
+      try {
+        await waitFor(() => document.querySelector('input[type="color"]'));
+        const input = () => document.querySelector('input[type="color"]');
+        const buttons = () => [...document.querySelectorAll('button')];
+        buttons()
+          .find((b) => b.textContent === 'Editar')
+          .click();
+        await waitFor(() => input().value === '#123456');
+        assert(input().value === '#123456', 'Saved manual color retained');
+        buttons()
+          .find((b) => b.textContent === 'Guardar')
+          .click();
+        await waitFor(() => saved.length === 1);
+        assert(saved[0].color === '#123456', 'Manual color submitted');
+        buttons()
+          .find((b) => b.textContent === 'Editar')
+          .click();
+        await waitFor(() => input().value === '#123456');
+        buttons()
+          .find((b) => b.textContent === 'Usar color del emoji')
+          .click();
+        await waitFor(() => input().value === emojiColor('🌳'));
+        buttons()
+          .find((b) => b.textContent === 'Guardar')
+          .click();
+        await waitFor(() => saved.length === 2);
+        assert(saved[1].color === emojiColor('🌳'), 'Emoji color submitted');
+        assert(/^#[0-9a-f]{6}$/.test(emojiColor('🔴')), 'Hex color');
+        assert(emojiColor('🔴') !== emojiColor('🌳'), 'Distinct colors');
+        assert(emojiColor('') === undefined, 'Empty icon fallback');
+        document.getElementById('result').textContent =
+          'OK: color persistido, override manual, reset al emoji';
+      } catch (error) {
+        document.getElementById('result').textContent =
+          'ERROR: ' + error.message;
+        throw error;
+      }
+    </script>
+  </body>
+</html>

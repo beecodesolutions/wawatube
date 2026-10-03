@@ -79,6 +79,14 @@ test('API isolates hidden media, validates bodies, serves local ranges and resum
       [],
       { prepare: false },
     );
+    await sql.unsafe(
+      await readFile(
+        new URL('../migrations/0007_category_colors.sql', import.meta.url),
+        'utf8',
+      ),
+      [],
+      { prepare: false },
+    );
     const db = drizzle(sql, { schema });
     const file = join(mediaRoot, 'sample.mp4');
     await writeFile(file, Buffer.from('0123456789'));
@@ -186,6 +194,7 @@ test('API isolates hidden media, validates bodies, serves local ranges and resum
       payload: { name: 'Test', icon: 'star' },
     });
     assert.equal(categoryResponse.statusCode, 200);
+    assert.equal(categoryResponse.json().color, null);
     const categoryId = categoryResponse.json().id as string;
     assert.equal(
       (
@@ -194,6 +203,17 @@ test('API isolates hidden media, validates bodies, serves local ranges and resum
           url: '/api/admin/categories',
           headers: admin,
           payload: { name: 42, icon: 'star' },
+        })
+      ).statusCode,
+      400,
+    );
+    assert.equal(
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/api/admin/categories',
+          headers: admin,
+          payload: { name: 'Bad color', icon: 'star', color: '#12345' },
         })
       ).statusCode,
       400,
@@ -283,10 +303,27 @@ test('API isolates hidden media, validates bodies, serves local ranges and resum
     });
     assert.equal(selected.statusCode, 200);
     assert.equal(selected.json().thumbnailMediaId, manual!.id);
+    assert.equal(selected.json().color, null);
     assert.equal(
       selected.json().thumbnailUrl,
       `/api/kids/media/${manual!.id}/thumbnail`,
     );
+    const colored = await app.inject({
+      method: 'PATCH',
+      url: `/api/admin/categories/${categoryId}`,
+      headers: admin,
+      payload: { name: 'Test', icon: 'star', color: '#12abEF' },
+    });
+    assert.equal(colored.statusCode, 200);
+    assert.equal(colored.json().color, '#12abEF');
+    const colorPreserved = await app.inject({
+      method: 'PATCH',
+      url: `/api/admin/categories/${categoryId}`,
+      headers: admin,
+      payload: { name: 'Test', icon: 'star' },
+    });
+    assert.equal(colorPreserved.statusCode, 200);
+    assert.equal(colorPreserved.json().color, '#12abEF');
     assert.equal(
       (
         await app.inject({
