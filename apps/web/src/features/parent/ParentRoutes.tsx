@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   AppBar,
@@ -25,16 +25,16 @@ import { AdminTelemetry } from './ParentTelemetry';
 export function ParentApp() {
   const { t } = useTranslation();
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
-  const entryLogout = useRef<Promise<void> | null>(null);
   useEffect(() => {
     const unsubscribe = subscribeUnauthorized(() => setAuthenticated(false));
     let active = true;
-    entryLogout.current ??= api.logout().catch(() => {
-      // Login remains available if the server is temporarily unreachable.
-    });
-    void entryLogout.current.then(async () => {
+    void (async () => {
       try {
-        const { pinRequired } = await api.session();
+        const { authenticated, pinRequired } = await api.session();
+        if (authenticated) {
+          if (active) setAuthenticated(true);
+          return;
+        }
         if (!pinRequired) {
           await api.login('dev');
           if (active) setAuthenticated(true);
@@ -44,7 +44,7 @@ export function ParentApp() {
         // Keep the PIN form available if the API is unreachable.
       }
       if (active) setAuthenticated(false);
-    });
+    })();
     return () => {
       active = false;
       unsubscribe();

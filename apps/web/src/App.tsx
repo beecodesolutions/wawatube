@@ -8,13 +8,18 @@ import {
 } from './features/child/ChildRoutes';
 import { ParentApp } from './features/parent/ParentRoutes';
 import { childTheme, parentTheme } from './theme';
+import { api } from './api';
 
 export function App() {
   const { pathname } = useLocation();
   const parent = pathname.startsWith('/parent');
   useEffect(() => {
+    if (!parent) void api.logout().catch(() => {});
+  }, [parent]);
+  useEffect(() => {
     const favicon = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
-    if (favicon) favicon.href = parent ? '/logo-parent.webp' : '/logo-child.webp';
+    if (favicon)
+      favicon.href = parent ? '/logo-parent.webp' : '/logo-child.webp';
   }, [parent]);
   useEffect(() => {
     if (

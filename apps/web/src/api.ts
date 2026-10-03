@@ -39,6 +39,7 @@ export class ApiRequestError extends Error {
 }
 
 const authEvents = new EventTarget();
+let pendingLogout: Promise<void> = Promise.resolve();
 
 export function subscribeUnauthorized(listener: () => void): () => void {
   const handler = () => listener();
@@ -98,12 +99,19 @@ export const api = {
       ...json(telemetry),
       keepalive: true,
     }),
-  session: () =>
-    request<{ authenticated: boolean; pinRequired: boolean }>(
+  session: async () => {
+    // A quick return from child mode must wait for session revocation.
+    await pendingLogout;
+    return request<{ authenticated: boolean; pinRequired: boolean }>(
       '/api/admin/auth/session',
-    ),
+    );
+  },
   login: (pin: string) => request<void>('/api/admin/auth/login', json({ pin })),
-  logout: () => request<void>('/api/admin/auth/logout', { method: 'POST' }),
+  logout: () => {
+    const logout = request<void>('/api/admin/auth/logout', { method: 'POST' });
+    pendingLogout = logout;
+    return logout;
+  },
   adminMedia: () => request<LibraryResponse>('/api/admin/media'),
   adminTelemetry: () => request<TelemetryReport>('/api/admin/telemetry'),
   updateMedia: (id: string, update: MediaUpdate) =>
