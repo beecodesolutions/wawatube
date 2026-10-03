@@ -2,6 +2,7 @@ import { useEffect, useRef, type ReactNode } from 'react';
 import ReplayRoundedIcon from '@mui/icons-material/ReplayRounded';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
+import { clearTelemetrySession } from '../features/child/telemetry';
 import {
   Alert,
   Box,
@@ -45,10 +46,12 @@ export function ChildBrand() {
   return (
     <Button
       onClick={() => {
+        clearTelemetrySession();
         if (homeClick.current) clearTimeout(homeClick.current);
         homeClick.current = setTimeout(() => navigate('/'), 250);
       }}
       onDoubleClick={() => {
+        clearTelemetrySession();
         if (homeClick.current) clearTimeout(homeClick.current);
         navigate('/parent');
       }}
