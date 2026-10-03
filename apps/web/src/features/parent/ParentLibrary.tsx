@@ -133,7 +133,16 @@ export function AdminLibrary() {
           : b.createdAt.localeCompare(a.createdAt),
     );
   const imports = library?.imports.filter((job) => job.state !== 'READY');
+  const activeImports = imports?.filter(
+    (job) => job.state === 'EXTRACTING' || job.state === 'QUEUED',
+  );
+  const otherImports = imports?.filter(
+    (job) => job.state !== 'EXTRACTING' && job.state !== 'QUEUED',
+  );
   const playlistImports = library?.playlistImports;
+  const activePlaylists = playlistImports?.filter(
+    (job) => job.state === 'EXTRACTING',
+  );
   const downloadsCount =
     (imports?.length ?? 0) + (playlistImports?.length ?? 0);
 
@@ -345,6 +354,116 @@ export function AdminLibrary() {
       ) : null}
       {tab === 'downloads' && library ? (
         <Stack spacing={2}>
+          <Paper component="section" sx={{ p: 2 }}>
+            <Stack spacing={1.5}>
+              <Typography variant="h6">
+                {t('parent.statsDownloading')}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {t('parent.inProgressHint')}
+              </Typography>
+              {library.counts.downloading === 0 ? (
+                <Typography color="text.secondary">
+                  {t('parent.noActiveDownloads')}
+                </Typography>
+              ) : null}
+              {activeImports?.map((job) => (
+                <Box
+                  key={job.id}
+                  sx={{ p: 1.5, bgcolor: 'action.hover', borderRadius: 2 }}
+                >
+                  <Stack
+                    direction={{ xs: 'column', sm: 'row' }}
+                    gap={1}
+                    justifyContent="space-between"
+                    alignItems={{ sm: 'center' }}
+                  >
+                    <Typography
+                      fontWeight={800}
+                      sx={{ overflowWrap: 'anywhere' }}
+                    >
+                      {job.title ?? t('common.notSet')}
+                    </Typography>
+                    <Chip size="small" label={t(`status.${job.state}`)} />
+                  </Stack>
+                  <Typography variant="body2" color="text.secondary">
+                    {t('parent.videoMode')} · {t(`status.${job.sourceType}`)}
+                  </Typography>
+                </Box>
+              ))}
+              {activePlaylists?.map((job) => (
+                <Box
+                  key={job.id}
+                  sx={{ p: 1.5, bgcolor: 'action.hover', borderRadius: 2 }}
+                >
+                  <Stack
+                    direction={{ xs: 'column', sm: 'row' }}
+                    gap={1}
+                    justifyContent="space-between"
+                    alignItems={{ sm: 'center' }}
+                  >
+                    <Typography
+                      fontWeight={800}
+                      sx={{ overflowWrap: 'anywhere' }}
+                    >
+                      {job.title ?? t('parent.playlistFallbackTitle')}
+                    </Typography>
+                    <Chip
+                      size="small"
+                      label={t('parent.activePlaylistStatus')}
+                    />
+                  </Stack>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ mt: 0.5 }}
+                  >
+                    {t('parent.playlistMode')} · {t('parent.playlistChecking')}
+                  </Typography>
+                  {job.videoCount > 0 ? (
+                    <Typography variant="body2" color="text.secondary">
+                      {t('parent.playlistProgress', {
+                        downloaded: job.downloadedCount,
+                        total: job.videoCount,
+                      })}{' '}
+                      ·{' '}
+                      {t('parent.playlistProgressDetails', {
+                        pending: job.pendingCount,
+                        failed: job.failedCount,
+                      })}
+                    </Typography>
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">
+                      {t('parent.playlistExtractionUnknown')}
+                    </Typography>
+                  )}
+                </Box>
+              ))}
+            </Stack>
+          </Paper>
+          {otherImports?.length ? (
+            <Typography variant="h6">
+              {t('parent.importsNeedAttention')}
+            </Typography>
+          ) : null}
+          {otherImports?.map((job) => (
+            <ImportStatus
+              key={job.id}
+              job={job}
+              onChanged={refresh}
+              onContinue={
+                job.state === 'PREVIEW'
+                  ? () => {
+                      setSelectedImport(job);
+                      setAdding(true);
+                    }
+                  : undefined
+              }
+            />
+          ))}
+          {library.playlistImports.length ? (
+            <Typography variant="h6">{t('parent.playlistsTitle')}</Typography>
+          ) : null}
           {library.playlistImports.length ? (
             <Button
               variant="outlined"
@@ -371,21 +490,6 @@ export function AdminLibrary() {
           {downloadsCount === 0 && !library?.playlistImports.length ? (
             <EmptyState text={t('parent.noImports')} />
           ) : null}
-          {imports?.map((job) => (
-            <ImportStatus
-              key={job.id}
-              job={job}
-              onChanged={refresh}
-              onContinue={
-                job.state === 'PREVIEW'
-                  ? () => {
-                      setSelectedImport(job);
-                      setAdding(true);
-                    }
-                  : undefined
-              }
-            />
-          ))}
           {library?.playlistImports.map((job) => (
             <PlaylistImportStatus key={job.id} job={job} onChanged={refresh} />
           ))}

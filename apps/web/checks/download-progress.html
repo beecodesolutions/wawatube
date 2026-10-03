@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Comprobar En proceso</title>
+  </head>
+  <body>
+    <!-- Run web dev server and open /checks/download-progress.html.
+         Uses fixture data only; never writes to API. -->
+    <output id="result" aria-live="polite">Comprobando…</output>
+    <div id="root"></div>
+    <script type="module">
+      import React from 'react';
+      import { createRoot } from 'react-dom/client';
+      import { ThemeProvider } from '@mui/material/styles';
+      import { AdminLibrary } from '../src/features/parent/ParentLibrary.tsx';
+      import { api } from '../src/api.ts';
+      import { parentTheme } from '../src/theme.ts';
+      import '../src/i18n.ts';
+
+      const job = (id, state) => ({
+        id,
+        state,
+        title: id,
+        sourceType: 'YOUTUBE',
+        description: null,
+        durationSeconds: null,
+        thumbnailUrl: null,
+        mediaItemId: null,
+        errorCode: null,
+      });
+      const playlist = (id, state, videoCount) => ({
+        id,
+        state,
+        playlistId: id,
+        title: id,
+        videoCount,
+        downloadedCount: videoCount,
+        pendingCount: 0,
+        failedCount: 0,
+        errorCode: null,
+        monitor: false,
+        lastCheckedAt: null,
+      });
+      const data = {
+        media: [],
+        imports: [
+          job('Video en cola', 'QUEUED'),
+          job('Video preparando', 'EXTRACTING'),
+          job('Video listo', 'READY'),
+          job('Video para confirmar', 'PREVIEW'),
+          job('Video fallido', 'FAILED'),
+        ],
+        playlistImports: [
+          playlist('Playlist revisando', 'EXTRACTING', 2),
+          playlist('Playlist sin total', 'EXTRACTING', 0),
+          playlist('Playlist completa', 'READY', 2),
+        ],
+        counts: { total: 0, available: 0, downloading: 4, failed: 1 },
+      };
+      api.adminMedia = async () => data;
+      api.categories = async () => [];
+      createRoot(document.getElementById('root')).render(
+        React.createElement(
+          ThemeProvider,
+          { theme: parentTheme },
+          React.createElement(AdminLibrary),
+        ),
+      );
+      const waitFor = async (read) => {
+        for (let i = 0; i < 200; i++) {
+          if (read()) return;
+          await new Promise((resolve) => setTimeout(resolve, 30));
+        }
+        throw new Error('Timeout waiting for UI');
+      };
+      const assert = (value, message) => {
+        if (!value) throw new Error(message);
+      };
+      const active = () => document.querySelector('section');
+      try {
+        await waitFor(() => document.querySelector('[role="tab"]'));
+        [...document.querySelectorAll('[role="tab"]')]
+          .find((tab) => tab.textContent === 'Descargas')
+          .click();
+        await waitFor(() =>
+          active()?.textContent.includes('Playlist revisando'),
+        );
+        for (const title of [
+          'Video en cola',
+          'Video preparando',
+          'Playlist revisando',
+          'Playlist sin total',
+        ])
+          assert(
+            active().textContent.includes(title),
+            'Missing active task: ' + title,
+          );
+        for (const title of [
+          'Video listo',
+          'Video para confirmar',
+          'Video fallido',
+          'Playlist completa',
+        ])
+          assert(
+            !active().textContent.includes(title),
+            'Inactive task included: ' + title,
+          );
+        assert(
+          active().textContent.includes('2/2 videos descargados'),
+          'Completed downloads still show playlist refresh',
+        );
+        assert(
+          active().textContent.includes('YouTube aún no informó cantidad.'),
+          'Unknown total',
+        );
+        assert(
+          document.body.textContent.includes('Continuar importación'),
+          'Preview action preserved',
+        );
+        document.getElementById('result').textContent =
+          'OK: tareas activas, playlists con total y sin total, acciones de revisión.';
+      } catch (error) {
+        document.getElementById('result').textContent =
+          'ERROR: ' + error.message;
+        throw error;
+      }
+    </script>
+  </body>
+</html>

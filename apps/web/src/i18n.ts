@@ -148,6 +148,13 @@ const resources = {
         statsTotal: 'Videos',
         statsAvailable: 'Disponibles',
         statsDownloading: 'En proceso',
+        inProgressHint:
+          'El contador suma videos en cola y playlists en actualización. Cada fila muestra una tarea activa.',
+        noActiveDownloads: 'No hay videos ni playlists en proceso.',
+        activePlaylistStatus: 'Revisando playlist…',
+        playlistChecking: 'Buscando videos y revisando descargas…',
+        importsNeedAttention: 'Importaciones para revisar',
+        playlistsTitle: 'Playlists',
         statsFailed: 'Con error',
         telemetryTitle: 'Uso de Wawatube',
         telemetryHint: 'Mirá cuánto tiempo y qué videos se vieron.',
