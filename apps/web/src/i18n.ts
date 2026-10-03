@@ -152,6 +152,7 @@ const resources = {
         telemetryTitle: 'Uso de Wawatube',
         telemetryHint: 'Mirá cuánto tiempo y qué videos se vieron.',
         telemetryTime: 'Tiempo visto',
+        telemetryLegacy: 'Tiempo sin desglose por video',
         telemetryViews: 'Reproducciones',
         telemetryDaily: 'Tiempo por día (UTC)',
         telemetryToday: 'Hoy (UTC)',

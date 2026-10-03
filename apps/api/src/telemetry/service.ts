@@ -159,7 +159,10 @@ export class TelemetryService {
   }
 
   async report(): Promise<TelemetryReport> {
-    const [daily, videos] = await Promise.all([
+    const utcVideoDay = sql<string>`to_char(
+      ${videoViews.startedAt} at time zone 'UTC', 'YYYY-MM-DD'
+    )`;
+    const [daily, dailyVideos, videos] = await Promise.all([
       this.db
         .select({
           date: telemetryDaily.day,
@@ -168,6 +171,18 @@ export class TelemetryService {
         })
         .from(telemetryDaily)
         .orderBy(asc(telemetryDaily.day)),
+      this.db
+        .select({
+          date: utcVideoDay,
+          mediaId: mediaItems.id,
+          title: mediaItems.title,
+          seconds: sql<number>`sum(${videoViews.watchedSeconds})::int`,
+          views: sql<number>`count(*)::int`,
+        })
+        .from(videoViews)
+        .innerJoin(mediaItems, eq(mediaItems.id, videoViews.mediaItemId))
+        .groupBy(utcVideoDay, mediaItems.id, mediaItems.title)
+        .orderBy(asc(utcVideoDay), asc(mediaItems.title)),
       this.db
         .select({
           mediaId: mediaItems.id,
@@ -186,8 +201,26 @@ export class TelemetryService {
           asc(mediaItems.title),
         ),
     ]);
+    const videosByDay = new Map<
+      string,
+      TelemetryReport['daily'][number]['videos']
+    >();
+    for (const video of dailyVideos) {
+      const day = videosByDay.get(video.date) ?? [];
+      const segment = {
+        mediaId: video.mediaId,
+        title: video.title,
+        seconds: video.seconds,
+        views: video.views,
+      };
+      day.push(segment);
+      videosByDay.set(video.date, day);
+    }
     return {
-      daily,
+      daily: daily.map((day) => {
+        const videos = videosByDay.get(day.date);
+        return videos?.length ? { ...day, videos } : day;
+      }),
       videos: videos.map(({ thumbnailRef, sourceType, ...video }) => ({
         ...video,
         thumbnailUrl:

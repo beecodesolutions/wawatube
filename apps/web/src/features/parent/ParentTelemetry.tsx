@@ -12,12 +12,13 @@ import {
   TableRow,
   Typography,
 } from '@mui/material';
+import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded';
+import { useTheme } from '@mui/material/styles';
 import type { TelemetryReport } from '@wawatube/shared';
 import {
   Bar,
   CartesianGrid,
-  ComposedChart,
-  Line,
+  BarChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -76,6 +77,8 @@ export function AdminTelemetry() {
   }, [reload, t]);
 
   const days = telemetry ? lastSevenDays(telemetry.daily) : [];
+  const viewedVideos =
+    telemetry?.videos.filter((video) => video.views > 0) ?? [];
 
   return (
     <Stack spacing={4}>
@@ -119,15 +122,17 @@ export function AdminTelemetry() {
                   <Typography variant="h4" sx={{ fontWeight: 900 }}>
                     {formatDuration(day.seconds)}
                   </Typography>
-                  <Typography color="text.secondary">
-                    {t('parent.telemetryTime')}
-                  </Typography>
-                  <Typography variant="h5" sx={{ mt: 1 }}>
-                    {day.views}
-                  </Typography>
-                  <Typography color="text.secondary">
-                    {t('parent.telemetryViews')}
-                  </Typography>
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    alignItems="baseline"
+                    sx={{ mt: 1 }}
+                  >
+                    <Typography variant="h5">{day.views}</Typography>
+                    <Typography color="text.secondary">
+                      {t('parent.telemetryViews')}
+                    </Typography>
+                  </Stack>
                 </Paper>
               ))}
           </Box>
@@ -138,7 +143,12 @@ export function AdminTelemetry() {
             >
               {t('parent.telemetryDaily')}
             </Typography>
-            <DailyChart days={days} label={t('parent.telemetryTime')} />
+            <DailyChart
+              days={days}
+              label={t('parent.telemetryTime')}
+              viewsLabel={t('parent.telemetryViews')}
+              legacyLabel={t('parent.telemetryLegacy')}
+            />
           </Stack>
           <Stack spacing={1}>
             <Typography
@@ -147,27 +157,42 @@ export function AdminTelemetry() {
             >
               {t('parent.telemetryVideos')}
             </Typography>
-            {telemetry.videos.length === 0 ? (
+            {viewedVideos.length === 0 ? (
               <EmptyState text={t('parent.telemetryNoData')} />
             ) : (
               <TableContainer component={Paper}>
-                <Table>
+                <Table
+                  sx={{
+                    tableLayout: 'fixed',
+                    '& .MuiTableCell-root': { px: { xs: 1, sm: 2 } },
+                  }}
+                >
                   <TableHead>
                     <TableRow>
                       <TableCell>{t('parent.mediaTitle')}</TableCell>
-                      <TableCell align="right">
-                        {t('parent.telemetryViews')}
+                      <TableCell
+                        align="right"
+                        sx={{ width: { xs: 64, sm: 88 } }}
+                      >
+                        <VisibilityRoundedIcon
+                          titleAccess={t('parent.telemetryViews')}
+                          fontSize="small"
+                          color="action"
+                          sx={{ verticalAlign: 'middle' }}
+                        />
                       </TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {telemetry.videos.map((video) => (
+                    {viewedVideos.map((video) => (
                       <TableRow key={video.mediaId}>
                         <TableCell>
                           <Stack
-                            direction="row"
-                            spacing={1.5}
-                            alignItems="center"
+                            direction={{ xs: 'column', sm: 'row' }}
+                            spacing={{ xs: 1, sm: 1.5 }}
+                            sx={{
+                              alignItems: { xs: 'flex-start', sm: 'center' },
+                            }}
                           >
                             {video.thumbnailUrl && (
                               <Box
@@ -175,18 +200,36 @@ export function AdminTelemetry() {
                                 src={video.thumbnailUrl}
                                 alt=""
                                 sx={{
-                                  width: 88,
-                                  height: 50,
+                                  width: { xs: 96, sm: 88 },
+                                  height: { xs: 54, sm: 50 },
                                   objectFit: 'cover',
                                   borderRadius: 1,
                                   flexShrink: 0,
                                 }}
                               />
                             )}
-                            <span>{video.title}</span>
+                            <Typography
+                              component="span"
+                              variant="body2"
+                              title={video.title}
+                              sx={{
+                                minWidth: 0,
+                                overflowWrap: 'anywhere',
+                                display: { xs: '-webkit-box', sm: 'block' },
+                                WebkitLineClamp: { xs: 2, sm: 'unset' },
+                                WebkitBoxOrient: 'vertical',
+                                overflow: 'hidden',
+                              }}
+                            >
+                              {video.title}
+                            </Typography>
                           </Stack>
                         </TableCell>
-                        <TableCell align="right">{video.views}</TableCell>
+                        <TableCell align="right">
+                          <Typography component="span" variant="h5">
+                            {video.views}
+                          </Typography>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -203,48 +246,106 @@ export function AdminTelemetry() {
 function DailyChart({
   days,
   label,
+  viewsLabel,
+  legacyLabel,
 }: {
   days: TelemetryReport['daily'];
   label: string;
+  viewsLabel: string;
+  legacyLabel: string;
 }) {
+  const theme = useTheme();
+  const colors = [
+    theme.palette.primary.main,
+    theme.palette.secondary.main,
+    theme.palette.success.main,
+    theme.palette.warning.main,
+    theme.palette.info.main,
+  ];
+  const videos = [
+    ...new Map(
+      days
+        .flatMap((day) => day.videos ?? [])
+        .map((video) => [video.mediaId, video]),
+    ).values(),
+  ];
   const data = days.map((day) => ({
     date: day.date,
     day: day.date.slice(5),
-    minutes: Math.round(day.seconds / 60),
+    minutes: day.seconds / 60,
+    views: day.views,
+    segments: Object.fromEntries(
+      (day.videos ?? []).map((video) => [video.mediaId, video.seconds / 60]),
+    ),
+    legacy:
+      Math.max(
+        0,
+        day.seconds -
+          (day.videos ?? []).reduce((sum, video) => sum + video.seconds, 0),
+      ) / 60,
   }));
   return (
-    <Paper sx={{ p: 2, height: 300 }}>
+    <Paper sx={{ p: { xs: 1, sm: 2 }, height: 300 }}>
       <Box
         role="img"
-        aria-label={`${label}: ${data.map((day) => `${day.date} ${day.minutes} min`).join(', ')}`}
+        aria-label={`${label}: ${data.map((day) => `${day.date} ${formatDuration(day.minutes * 60)}, ${day.views} ${viewsLabel}`).join(', ')}`}
         sx={{ width: '100%', height: '100%' }}
       >
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart
+          <BarChart
             data={data}
             margin={{ top: 12, right: 12, bottom: 4, left: 0 }}
           >
             <CartesianGrid strokeDasharray="3 3" vertical={false} />
             <XAxis dataKey="day" />
-            <YAxis allowDecimals={false} unit=" min" width={65} />
+            <YAxis allowDecimals={false} unit=" min" width={60} />
             <Tooltip
-              formatter={(value) => `${value} min`}
-              labelFormatter={(_, payload) => payload[0]?.payload.date ?? ''}
+              filterNull
+              content={({ active, payload }) => {
+                if (!active || !payload?.length) return null;
+                const day = days.find(
+                  (day) => day.date === payload[0]?.payload.date,
+                );
+                if (!day) return null;
+                return (
+                  <Paper sx={{ p: 1.5, maxWidth: 280 }}>
+                    <Typography fontWeight={700}>{day.date}</Typography>
+                    <Typography>
+                      {formatDuration(day.seconds)} · {day.views} {viewsLabel}
+                    </Typography>
+                    {(day.videos ?? []).map((video) => (
+                      <Typography
+                        key={video.mediaId}
+                        variant="body2"
+                        sx={{ mt: 0.5, overflowWrap: 'anywhere' }}
+                      >
+                        {video.title}: {formatDuration(video.seconds)} ·{' '}
+                        {video.views} {viewsLabel}
+                      </Typography>
+                    ))}
+                    {data.find((item) => item.date === day.date)?.legacy ? (
+                      <Typography variant="body2">{legacyLabel}</Typography>
+                    ) : null}
+                  </Paper>
+                );
+              }}
             />
+            {videos.map((video, index) => (
+              <Bar
+                key={video.mediaId}
+                dataKey={(day) => day.segments[video.mediaId] ?? 0}
+                stackId="time"
+                name={video.title}
+                fill={colors[index % colors.length]}
+              />
+            ))}
             <Bar
-              dataKey="minutes"
-              name={label}
-              fill="#8e78d5"
-              radius={[4, 4, 0, 0]}
+              dataKey="legacy"
+              stackId="time"
+              name={legacyLabel}
+              fill={theme.palette.text.disabled}
             />
-            <Line
-              dataKey="minutes"
-              name={label}
-              stroke="#49338e"
-              strokeWidth={3}
-              dot={{ r: 4 }}
-            />
-          </ComposedChart>
+          </BarChart>
         </ResponsiveContainer>
       </Box>
     </Paper>

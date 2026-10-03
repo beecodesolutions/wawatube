@@ -544,6 +544,7 @@ test('API isolates hidden media, validates bodies, serves local ranges and resum
         date: new Date().toISOString().slice(0, 10),
         seconds: 19,
         views: 3,
+        videos: [{ mediaId: hiddenId, title: 'Hidden', seconds: 12, views: 2 }],
       },
     ]);
     const bytes = await app.inject({

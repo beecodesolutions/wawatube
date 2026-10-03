@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="es">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Comprobar Uso</title>
+  <body style="margin: 0">
+    <output id="result">Comprobando…</output>
+    <div id="root" style="padding: 16px"></div>
+    <script type="module">
+      import React from 'react';
+      import { createRoot } from 'react-dom/client';
+      import { ThemeProvider } from '@mui/material/styles';
+      import { AdminTelemetry } from '../src/features/parent/ParentTelemetry.tsx';
+      import { parentTheme } from '../src/theme.ts';
+      import { api } from '../src/api.ts';
+      import '../src/i18n.ts';
+      // Fixture only; no API requests. Open at 320px and desktop widths.
+      const date = new Date().toISOString().slice(0, 10);
+      const title =
+        'Video con título muy largo para comprobar saltos de línea y palabraslarguísimasquenodebenensancharlatabla';
+      const thumb =
+        'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="88" height="50"%3E%3Crect width="88" height="50" fill="purple"/%3E%3C/svg%3E';
+      api.adminTelemetry = async () => ({
+        daily: [
+          {
+            date: new Date(Date.now() - 86400000).toISOString().slice(0, 10),
+            seconds: 300,
+            views: 1,
+            videos: [{ mediaId: 'a', title, seconds: 300, views: 1 }],
+          },
+          {
+            date,
+            seconds: 600,
+            views: 3,
+            videos: [
+              { mediaId: 'a', title, seconds: 360, views: 2 },
+              { mediaId: 'b', title: 'Segundo video', seconds: 240, views: 1 },
+            ],
+          },
+        ],
+        videos: [
+          { mediaId: 'a', title, views: 2, thumbnailUrl: thumb },
+          {
+            mediaId: 'b',
+            title: 'Segundo video',
+            views: 1,
+            thumbnailUrl: thumb,
+          },
+          { mediaId: 'c', title: 'SIN VISTAS', views: 0, thumbnailUrl: null },
+        ],
+      });
+      createRoot(document.getElementById('root')).render(
+        React.createElement(
+          ThemeProvider,
+          { theme: parentTheme },
+          React.createElement(AdminTelemetry),
+        ),
+      );
+      let attempts = 0;
+      const check = setInterval(() => {
+        if (
+          !document.querySelector('tbody') ||
+          document.querySelectorAll('.recharts-bar').length !== 3
+        ) {
+          if (++attempts > 100) throw new Error('UI timeout');
+          return;
+        }
+        clearInterval(check);
+        const table = document.querySelector('table');
+        const assert = (value, message) => {
+          if (!value) throw new Error(message);
+        };
+        try {
+          assert(
+            document.querySelectorAll('tbody tr').length === 2,
+            'Zero-view row',
+          );
+          assert(table.scrollWidth <= table.clientWidth, 'Table overflow');
+          assert(
+            document.documentElement.scrollWidth <= innerWidth,
+            'Page overflow',
+          );
+          assert(
+            document.querySelectorAll('.recharts-bar').length === 3,
+            'Expected stacked video + legacy series',
+          );
+          document.getElementById('result').textContent =
+            'OK: stacked, filas con vistas, sin overflow';
+        } catch (error) {
+          document.getElementById('result').textContent =
+            'ERROR: ' + error.message;
+          throw error;
+        }
+      }, 50);
+    </script>
+  </body>
+</html>

@@ -28,7 +28,17 @@ export interface PlaybackTelemetry {
   ended?: boolean;
 }
 export interface TelemetryReport {
-  daily: { date: string; seconds: number; views: number }[];
+  daily: {
+    date: string;
+    seconds: number;
+    views: number;
+    videos?: {
+      mediaId: string;
+      title: string;
+      seconds: number;
+      views: number;
+    }[];
+  }[];
   videos: {
     mediaId: string;
     title: string;
