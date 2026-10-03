@@ -342,6 +342,11 @@ export function createApp(options: AppOptions): FastifyInstance {
       (request) =>
         playlistImports.setMonitor(id(request.params.id), request.body.monitor),
     );
+    admin.post<{ Params: { id: string } }>(
+      '/api/admin/playlist-import/:id/refresh',
+      { schema: idParams },
+      (request) => playlistImports.refresh(id(request.params.id)),
+    );
     admin.post('/api/admin/playlist-import/refresh-all', () =>
       playlistImports.refreshAll(),
     );

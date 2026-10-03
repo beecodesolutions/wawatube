@@ -351,6 +351,44 @@ test('playlist imports persist extraction, preserve categories, and retry member
     await playlists.reconcile();
     assert.equal((await playlists.job(started.id)).videoIds.length, 3);
 
+    const [other] = await db
+      .insert(schema.playlistImports)
+      .values({
+        playlistId: 'PLOTHER123',
+        state: 'READY',
+        monitor: false,
+      })
+      .returning();
+    const beforeRefresh = await playlists.job(started.id);
+    const refreshUrl = `/api/admin/playlist-import/${started.id}/refresh`;
+    assert.equal(
+      (await app.inject({ method: 'POST', url: refreshUrl })).statusCode,
+      401,
+    );
+    const refreshResponse = await app.inject({
+      method: 'POST',
+      url: refreshUrl,
+      headers,
+    });
+    assert.equal(refreshResponse.statusCode, 200);
+    assert.equal(refreshResponse.json().state, 'EXTRACTING');
+    for (
+      let attempt = 0;
+      attempt < 100 && (await playlists.job(started.id)).state === 'EXTRACTING';
+      attempt++
+    )
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    const refreshed = await playlists.job(started.id);
+    assert.equal(refreshed.state, 'READY');
+    assert.equal(refreshed.videoIds.length, 4);
+    assert.equal(refreshed.categoryId, beforeRefresh.categoryId);
+    assert.equal(refreshed.visible, beforeRefresh.visible);
+    assert.equal(refreshed.monitor, beforeRefresh.monitor);
+    assert.equal((await playlists.job(other!.id)).state, 'READY');
+    await db
+      .delete(schema.playlistImports)
+      .where(eq(schema.playlistImports.id, other!.id));
+
     // Completed upstream tasks must not reuse stale/empty playlist metadata.
     lastRefresh = () => 1;
     const stale = await playlists.start('PLSTALE123', undefined, true, false);

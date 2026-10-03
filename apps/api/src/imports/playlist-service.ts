@@ -191,6 +191,35 @@ export class PlaylistImportService {
     }
   }
 
+  async refresh(id: string): Promise<PlaylistImportJob> {
+    await this.job(id);
+    const [updated] = await this.db
+      .update(playlistImports)
+      .set({
+        state: 'EXTRACTING',
+        taskId: null,
+        errorCode: null,
+        lastCheckedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(playlistImports.id, id),
+          inArray(playlistImports.state, ['READY', 'FAILED']),
+        ),
+      )
+      .returning();
+    const result = playlistImportDto(updated ?? (await this.job(id)));
+    if (updated) {
+      if (this.running) this.refreshRequested = true;
+      else
+        void this.reconcile().catch((error) =>
+          console.error('playlist refresh failed', error),
+        );
+    }
+    return result;
+  }
+
   async refreshAll(): Promise<{ count: number }> {
     const rows = await this.db
       .update(playlistImports)

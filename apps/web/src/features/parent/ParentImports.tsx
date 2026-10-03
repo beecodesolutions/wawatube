@@ -22,6 +22,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import SyncRoundedIcon from '@mui/icons-material/SyncRounded';
 import { useTheme } from '@mui/material/styles';
 import type {
   Category,
@@ -536,11 +537,11 @@ export function PlaylistImportStatus({
   const { t } = useTranslation();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const retry = async () => {
+  const refreshPlaylist = async () => {
     setBusy(true);
     setError(null);
     try {
-      await api.retryPlaylistImport(job.id);
+      await api.refreshPlaylist(job.id);
       onChanged();
     } catch (reason: unknown) {
       setError(errorText(reason, t));
@@ -646,16 +647,21 @@ export function PlaylistImportStatus({
           ) : null}
         </Box>
         {error ? <Typography color="error">{error}</Typography> : null}
-        {job.state === 'FAILED' ? (
-          <Button
-            onClick={() => {
-              void retry();
-            }}
-            disabled={busy}
-          >
-            {busy ? t('common.loading') : t('parent.retryDownload')}
-          </Button>
-        ) : null}
+        <Button
+          variant="outlined"
+          startIcon={<SyncRoundedIcon />}
+          aria-label={t('parent.refreshPlaylistLabel', {
+            title: job.title ?? t('parent.playlistFallbackTitle'),
+          })}
+          onClick={() => {
+            void refreshPlaylist();
+          }}
+          disabled={busy || job.state === 'EXTRACTING'}
+        >
+          {busy || job.state === 'EXTRACTING'
+            ? t('parent.refreshingPlaylist')
+            : t('parent.refreshPlaylist')}
+        </Button>
       </Stack>
     </Paper>
   );

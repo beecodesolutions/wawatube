@@ -153,6 +153,11 @@ export const api = {
       `/api/admin/playlist-import/${encodeURIComponent(id)}/monitor`,
       { method: 'PATCH', body: JSON.stringify({ monitor }) },
     ),
+  refreshPlaylist: (id: string) =>
+    request<PlaylistImportJob>(
+      `/api/admin/playlist-import/${encodeURIComponent(id)}/refresh`,
+      json({}),
+    ),
   refreshAllPlaylists: () =>
     request<{ count: number }>(
       '/api/admin/playlist-import/refresh-all',
