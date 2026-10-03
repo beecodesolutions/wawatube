@@ -76,6 +76,25 @@ export class LocalMediaProvider implements MediaProvider {
     this.ffmpegPath = ffmpegPath;
   }
 
+  async remove(sourceId: string): Promise<void> {
+    const id = normalizeSourceId(sourceId);
+    const root = await this.rootPath();
+    if (!EXTENSIONS.has(extname(id).toLowerCase()))
+      throw new ProviderError('INVALID_SOURCE');
+    const file = join(root, id);
+    let target: string;
+    try {
+      target = await realpath(file);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return;
+      throw error;
+    }
+    const rel = relative(root, target);
+    if (!rel || rel.startsWith(`..${sep}`) || isAbsolute(rel))
+      throw new ProviderError('INVALID_SOURCE');
+    await unlink(file);
+  }
+
   async discover(): Promise<LocalCandidate[]> {
     const root = await this.rootPath();
     const candidates: LocalCandidate[] = [];

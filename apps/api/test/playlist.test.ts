@@ -77,6 +77,7 @@ test('playlist imports persist extraction, preserve categories, and retry member
     let previewReady = true;
     let playlistStarts = 0;
     const media: MediaGateway = {
+      remove: async () => {},
       metadata: async () => metadata,
       available: async (_source, sourceId) => sourceId === existingId,
       playback: async () => ({ kind: 'upstream', path: '/media/video.mp4' }),

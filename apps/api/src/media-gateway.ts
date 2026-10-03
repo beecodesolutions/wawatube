@@ -6,6 +6,7 @@ import type {
 } from './providers/media-provider.js';
 
 export interface MediaGateway {
+  remove(sourceType: SourceType, sourceId: string): Promise<void>;
   metadata(sourceType: SourceType, sourceId: string): Promise<MediaMetadata>;
   available(sourceType: SourceType, sourceId: string): Promise<boolean>;
   playback(sourceType: SourceType, sourceId: string): Promise<MediaResource>;
@@ -71,6 +72,9 @@ export class ProviderMediaGateway implements MediaGateway {
       method?: 'GET' | 'HEAD',
     ) => Promise<Response>,
   ) {}
+  remove(type: SourceType, id: string) {
+    return this.providers[type].remove(id);
+  }
   metadata(type: SourceType, id: string) {
     return this.providers[type].metadata(id);
   }

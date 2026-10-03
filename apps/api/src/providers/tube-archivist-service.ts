@@ -41,6 +41,15 @@ export class TubeArchivistService {
     this.token = token;
   }
 
+  async remove(videoId: string): Promise<void> {
+    validateVideoId(videoId);
+    const response = await this.request(`/api/video/${videoId}/`, {
+      method: 'DELETE',
+    });
+    if (!response.ok && response.status !== 404)
+      throw new ProviderError('UPSTREAM_ERROR');
+  }
+
   async preview(
     videoId: string,
   ): Promise<{ taskId: string | null; metadata: MediaMetadata | null }> {

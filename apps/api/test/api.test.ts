@@ -10,6 +10,7 @@ import { createApp } from '../src/app.js';
 import { loadConfig } from '../src/config.js';
 import * as schema from '../src/db/schema.js';
 import { createSession } from '../src/auth/service.js';
+import { LibraryService } from '../src/library/service.js';
 import { ImportService } from '../src/imports/service.js';
 import type { MediaGateway } from '../src/media-gateway.js';
 import { LocalMediaProvider } from '../src/providers/local-media-provider.js';
@@ -86,6 +87,7 @@ test('API isolates hidden media, validates bodies, serves local ranges and resum
     let queued = 0;
     const local = new LocalMediaProvider(mediaRoot);
     const media: MediaGateway = {
+      remove: async () => {},
       metadata: async (source, id) =>
         source === 'LOCAL' ? local.metadata(id) : metadata,
       available: async (source, id) =>
@@ -118,6 +120,31 @@ test('API isolates hidden media, validates bodies, serves local ranges and resum
       }),
       upstream: async () => new Response(null, { status: 404 }),
     };
+    const library = new LibraryService(db, media);
+    const [deleteItem] = await db
+      .insert(schema.mediaItems)
+      .values({
+        sourceType: 'LOCAL',
+        sourceId: 'delete.mp4',
+        title: 'Delete',
+      })
+      .returning();
+    await writeFile(join(mediaRoot, 'delete.mp4'), 'delete');
+    media.remove = async () => {
+      throw new Error('disk failure');
+    };
+    await assert.rejects(library.deleteMedia(deleteItem!.id));
+    assert.equal(
+      (await library.adminItem(deleteItem!.id)).sourceId,
+      'delete.mp4',
+    );
+    media.remove = async (source, id) => {
+      assert.equal(source, 'LOCAL');
+      await local.remove(id);
+    };
+    await library.deleteMedia(deleteItem!.id);
+    assert.equal(await local.available('delete.mp4'), false);
+    await assert.rejects(library.adminItem(deleteItem!.id));
     const imports = new ImportService(db, media);
     app = createApp({
       db,

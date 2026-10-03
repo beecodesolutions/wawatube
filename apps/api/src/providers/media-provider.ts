@@ -11,6 +11,7 @@ export type MediaResource =
   | { kind: 'upstream'; path: string };
 export interface MediaProvider {
   readonly sourceType: SourceType;
+  remove(sourceId: string): Promise<void>;
   metadata(sourceId: string): Promise<MediaMetadata>;
   available(sourceId: string): Promise<boolean>;
   playback(sourceId: string): Promise<MediaResource>;

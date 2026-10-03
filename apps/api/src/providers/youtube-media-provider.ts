@@ -14,6 +14,10 @@ export class YouTubeMediaProvider implements MediaProvider {
     this.service = service;
   }
 
+  remove(sourceId: string): Promise<void> {
+    return this.service.remove(sourceId);
+  }
+
   async metadata(sourceId: string): Promise<MediaMetadata> {
     const metadata =
       (await this.service.archived(sourceId)) ??

@@ -22,6 +22,21 @@ import {
 
 const videoId = 'dQw4w9WgXcQ';
 describe('local media provider', () => {
+  it('removes local files, tolerates missing files and rejects escaping paths', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'wawatube-delete-'));
+    const outside = await mkdtemp(join(tmpdir(), 'wawatube-outside-'));
+    const provider = new LocalMediaProvider(root);
+    await writeFile(join(root, 'sample.mp4'), 'video');
+    await provider.remove('sample.mp4');
+    assert.equal(await provider.available('sample.mp4'), false);
+    await provider.remove('sample.mp4');
+    await writeFile(join(outside, 'keep.mp4'), 'keep');
+    await symlink(join(outside, 'keep.mp4'), join(root, 'escape.mp4'));
+    await assert.rejects(provider.remove('escape.mp4'));
+    await assert.rejects(provider.remove('../keep.mp4'));
+    assert.equal(await readFile(join(outside, 'keep.mp4'), 'utf8'), 'keep');
+  });
+
   it('generates a cached first frame without changing the source video', async () => {
     const root = await mkdtemp(join(tmpdir(), 'wawatube-local-'));
     const video = join(root, 'sample.mp4');
@@ -169,6 +184,30 @@ describe('YouTube media provider', () => {
 });
 
 describe('TubeArchivist service', () => {
+  it('deletes archived files, accepts missing videos and propagates failures', async () => {
+    const originalFetch = globalThis.fetch;
+    let status = 204;
+    globalThis.fetch = async (input, init) => {
+      assert.equal(new URL(String(input)).pathname, `/api/video/${videoId}/`);
+      assert.equal(init?.method, 'DELETE');
+      return new Response(null, { status });
+    };
+    try {
+      const service = new TubeArchivistService(
+        'http://localhost:18000',
+        'secret',
+      );
+      await service.remove(videoId);
+      status = 404;
+      await service.remove(videoId);
+      status = 500;
+      await assert.rejects(service.remove(videoId));
+      await assert.rejects(service.remove('../invalid'));
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   it('uses the verified preview, pending, queue and archived endpoints', async () => {
     const requests: { method: string; path: string; body: string }[] = [];
     let archivedCalls = 0;

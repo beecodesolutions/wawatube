@@ -415,6 +415,8 @@ export class LibraryService {
     });
   }
   async deleteMedia(id: string): Promise<void> {
+    const row = await this.adminItem(id);
+    await this.media.remove(sourceType(row.sourceType), row.sourceId);
     await this.db.delete(mediaItems).where(eq(mediaItems.id, id));
   }
   async localImport(
