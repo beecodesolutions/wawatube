@@ -70,6 +70,14 @@ test('API isolates hidden media, validates bodies, serves local ranges and resum
       [],
       { prepare: false },
     );
+    await sql.unsafe(
+      await readFile(
+        new URL('../migrations/0006_watch_telemetry.sql', import.meta.url),
+        'utf8',
+      ),
+      [],
+      { prepare: false },
+    );
     const db = drizzle(sql, { schema });
     const file = join(mediaRoot, 'sample.mp4');
     await writeFile(file, Buffer.from('0123456789'));
@@ -384,6 +392,104 @@ test('API isolates hidden media, validates bodies, serves local ranges and resum
       ).statusCode,
       204,
     );
+    const sessionId = '11111111-1111-4111-8111-111111111111';
+    const viewId = '22222222-2222-4222-8222-222222222222';
+    const secondViewId = '33333333-3333-4333-8333-333333333333';
+    const identified = (watchedSeconds: number, extra = {}) =>
+      app!.inject({
+        method: 'POST',
+        url: `/api/kids/media/${hiddenId}/telemetry`,
+        payload: {
+          views: 1,
+          seconds: 30,
+          sessionId,
+          viewId,
+          watchedSeconds,
+          ...extra,
+        },
+      });
+    assert.equal((await identified(5)).statusCode, 204);
+    assert.equal((await identified(3)).statusCode, 204);
+    assert.equal(
+      (await identified(8, { completed: true, ended: true })).statusCode,
+      204,
+    );
+    assert.equal(
+      (
+        await app.inject({
+          method: 'POST',
+          url: `/api/kids/media/${hiddenId}/telemetry`,
+          payload: {
+            views: 1,
+            seconds: 30,
+            sessionId,
+            viewId: secondViewId,
+            watchedSeconds: 2,
+          },
+        })
+      ).statusCode,
+      204,
+    );
+    const concurrent = await Promise.all([identified(10), identified(9)]);
+    assert.deepEqual(
+      concurrent.map((response) => response.statusCode).sort(),
+      [204, 204],
+    );
+    const [concurrentView] = await db
+      .select()
+      .from(schema.videoViews)
+      .where(eq(schema.videoViews.id, viewId));
+    assert.equal(concurrentView!.watchedSeconds, 10);
+    assert.equal(
+      (
+        await app.inject({
+          method: 'POST',
+          url: `/api/kids/media/${hiddenId}/telemetry`,
+          payload: { views: 1, seconds: 30, sessionId },
+        })
+      ).statusCode,
+      400,
+    );
+    assert.equal(
+      (
+        await app.inject({
+          method: 'POST',
+          url: `/api/kids/media/${hiddenId}/telemetry`,
+          payload: {
+            views: 1,
+            seconds: 30,
+            sessionId,
+            viewId,
+            watchedSeconds: 8,
+          },
+        })
+      ).statusCode,
+      204,
+    );
+    assert.equal(
+      (
+        await app.inject({
+          method: 'POST',
+          url: `/api/kids/media/${hiddenId}/telemetry`,
+          payload: {
+            views: 1,
+            seconds: 30,
+            sessionId: '44444444-4444-4444-8444-444444444444',
+            viewId,
+            watchedSeconds: 9,
+          },
+        })
+      ).statusCode,
+      409,
+    );
+    const [view] = await db
+      .select()
+      .from(schema.videoViews)
+      .where(eq(schema.videoViews.id, viewId));
+    assert.equal(view!.watchedSeconds, 10);
+    assert.equal(view!.completed, true);
+    assert.ok(view!.endedAt);
+    assert.equal((await db.select().from(schema.watchSessions)).length, 1);
     assert.equal(
       (
         await app.inject({
@@ -417,7 +523,7 @@ test('API isolates hidden media, validates bodies, serves local ranges and resum
       {
         mediaId: hiddenId,
         title: 'Hidden',
-        views: 1,
+        views: 3,
         thumbnailUrl: `/api/admin/media/${hiddenId}/thumbnail`,
       },
       {
@@ -436,8 +542,8 @@ test('API isolates hidden media, validates bodies, serves local ranges and resum
     assert.deepEqual(telemetry.json().daily, [
       {
         date: new Date().toISOString().slice(0, 10),
-        seconds: 7,
-        views: 1,
+        seconds: 19,
+        views: 3,
       },
     ]);
     const bytes = await app.inject({

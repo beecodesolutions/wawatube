@@ -21,6 +21,11 @@ export interface ChildMedia {
 export interface PlaybackTelemetry {
   views: 0 | 1;
   seconds: number;
+  sessionId?: string;
+  viewId?: string;
+  watchedSeconds?: number;
+  completed?: boolean;
+  ended?: boolean;
 }
 export interface TelemetryReport {
   daily: { date: string; seconds: number; views: number }[];

@@ -113,7 +113,24 @@ export const telemetryBody = {
     properties: {
       views: { type: 'integer', enum: [0, 1] },
       seconds: { type: 'integer', minimum: 0, maximum: 30 },
+      sessionId: { type: 'string', format: 'uuid' },
+      viewId: { type: 'string', format: 'uuid' },
+      watchedSeconds: { type: 'integer', minimum: 0, maximum: 2147483647 },
+      completed: { type: 'boolean' },
+      ended: { type: 'boolean' },
     },
+    oneOf: [
+      {
+        not: {
+          anyOf: [
+            { required: ['sessionId'] },
+            { required: ['viewId'] },
+            { required: ['watchedSeconds'] },
+          ],
+        },
+      },
+      { required: ['sessionId', 'viewId', 'watchedSeconds'] },
+    ],
   },
 } as const;
 export function id(value: string): string {

@@ -14,6 +14,14 @@ import type {
   TelemetryReport,
 } from '@wawatube/shared';
 
+export type PlaybackTelemetryPayload = PlaybackTelemetry & {
+  sessionId: string;
+  viewId: string;
+  watchedSeconds: number;
+  completed: boolean;
+  ended: boolean;
+};
+
 export class ApiRequestError extends Error {
   readonly status: number;
   readonly code: string;
@@ -85,7 +93,7 @@ export const api = {
     ),
   childMedia: (id: string) =>
     request<ChildMedia>(`/api/kids/media/${encodeURIComponent(id)}`),
-  childTelemetry: (id: string, telemetry: PlaybackTelemetry) =>
+  childTelemetry: (id: string, telemetry: PlaybackTelemetryPayload) =>
     request<void>(`/api/kids/media/${encodeURIComponent(id)}/telemetry`, {
       ...json(telemetry),
       keepalive: true,

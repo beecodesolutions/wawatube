@@ -151,6 +151,45 @@ export const telemetryVideoViews = pgTable('telemetry_video_views', {
   views: integer('views').default(0).notNull(),
 });
 
+export const watchSessions = pgTable('watch_sessions', {
+  id: uuid('id').primaryKey(),
+  startedAt: timestamp('started_at', { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  lastActivityAt: timestamp('last_activity_at', { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  endedAt: timestamp('ended_at', { withTimezone: true }),
+});
+
+export const videoViews = pgTable(
+  'video_views',
+  {
+    id: uuid('id').primaryKey(),
+    sessionId: uuid('session_id')
+      .notNull()
+      .references(() => watchSessions.id, { onDelete: 'cascade' }),
+    mediaItemId: uuid('media_item_id')
+      .notNull()
+      .references(() => mediaItems.id, { onDelete: 'cascade' }),
+    startedAt: timestamp('started_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    lastActivityAt: timestamp('last_activity_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    endedAt: timestamp('ended_at', { withTimezone: true }),
+    watchedSeconds: integer('watched_seconds').default(0).notNull(),
+    completed: boolean('completed').default(false).notNull(),
+  },
+  (table) => [
+    check(
+      'video_views_watched_seconds_check',
+      sql`${table.watchedSeconds} >= 0`,
+    ),
+  ],
+);
+
 export type CategoryRow = typeof categories.$inferSelect;
 export type MediaRow = typeof mediaItems.$inferSelect;
 export type ImportRow = typeof imports.$inferSelect;

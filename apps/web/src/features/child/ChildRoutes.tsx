@@ -40,15 +40,30 @@ import {
   LoadingState,
 } from '../../components/Shared';
 import { SmartDisplay } from '@mui/icons-material';
+import {
+  clearTelemetrySession,
+  createTelemetryId,
+  getTelemetrySessionId,
+  touchTelemetrySession,
+} from './telemetry';
 
 export const THUMBNAIL_RETRY_DELAYS_MS = [1000, 3000, 10000] as const;
 
-function BackButton({ to = '/' }: { to?: string }) {
+function BackButton({
+  to = '/',
+  onExit,
+}: {
+  to?: string;
+  onExit?: () => void;
+}) {
   const { t } = useTranslation();
   return (
     <Button
       component={Link}
       to={to}
+      onClick={() => {
+        onExit?.();
+      }}
       variant="contained"
       size="large"
       startIcon={<ArrowBackRoundedIcon sx={{ fontSize: '2rem' }} />}
@@ -470,16 +485,38 @@ export function ChildPlayer() {
     'watching',
   );
   const viewedRef = useRef(false);
+  const sessionIdRef = useRef<string | null>(null);
+  const viewIdRef = useRef<string | null>(null);
+  const watchedSecondsRef = useRef(0);
+  const endedRef = useRef(false);
   const playingSinceRef = useRef<number | null>(null);
   const pendingSecondsRef = useRef(0);
 
+  if (sessionIdRef.current === null)
+    sessionIdRef.current = getTelemetrySessionId();
+  if (viewIdRef.current === null) viewIdRef.current = createTelemetryId();
+
   const recordTelemetry = useCallback(
-    (views: 0 | 1, seconds: number) => {
-      if (!mediaId || (views === 0 && seconds <= 0)) return;
+    (
+      views: 0 | 1,
+      seconds: number,
+      { completed = false, ended = false } = {},
+    ) => {
+      const sessionId = sessionIdRef.current;
+      const viewId = viewIdRef.current;
+      if (!mediaId || !sessionId || !viewId) return;
+      if (views === 0 && seconds <= 0 && !completed && !ended) return;
+      if ((completed || ended) && !viewedRef.current) return;
+      if (!ended) touchTelemetrySession(sessionId);
       void api
         .childTelemetry(mediaId, {
           views,
           seconds: Math.min(30, Math.max(0, Math.floor(seconds))),
+          sessionId,
+          viewId,
+          watchedSeconds: watchedSecondsRef.current,
+          completed,
+          ended,
         })
         .catch(() => {});
     },
@@ -487,28 +524,80 @@ export function ChildPlayer() {
   );
 
   const flushTelemetry = useCallback(
-    (stop = true) => {
+    ({
+      stop = true,
+      completed = false,
+      ended = false,
+    }: { stop?: boolean; completed?: boolean; ended?: boolean } = {}) => {
       const since = playingSinceRef.current;
-      if (since === null) return;
-      const now = Date.now();
-      pendingSecondsRef.current += Math.max(0, (now - since) / 1000);
-      playingSinceRef.current = stop ? null : now;
+      if (since !== null) {
+        const now = Date.now();
+        pendingSecondsRef.current += Math.max(0, (now - since) / 1000);
+        playingSinceRef.current = stop ? null : now;
+      }
       let seconds = Math.floor(pendingSecondsRef.current);
       pendingSecondsRef.current -= seconds;
+      if (seconds === 0 && (completed || ended))
+        recordTelemetry(0, 0, { completed, ended });
       while (seconds > 0) {
         const batch = Math.min(30, seconds);
-        recordTelemetry(0, batch);
+        watchedSecondsRef.current += batch;
         seconds -= batch;
+        recordTelemetry(0, batch, {
+          completed: completed && seconds === 0,
+          ended: ended && seconds === 0,
+        });
       }
     },
     [recordTelemetry],
   );
 
+  const endCurrentView = () => {
+    const sessionId = sessionIdRef.current;
+    const viewId = viewIdRef.current;
+    if (!mediaId || !sessionId || !viewId || !viewedRef.current) return;
+    void api
+      .childTelemetry(mediaId, {
+        views: 0,
+        seconds: 0,
+        sessionId,
+        viewId,
+        watchedSeconds: watchedSecondsRef.current,
+        completed: false,
+        ended: true,
+      })
+      .catch(() => {});
+  };
+
+  const refreshTelemetrySession = () => {
+    const sessionId = getTelemetrySessionId();
+    if (sessionId === sessionIdRef.current) return;
+    endCurrentView();
+    sessionIdRef.current = sessionId;
+    viewIdRef.current = createTelemetryId();
+    watchedSecondsRef.current = 0;
+    pendingSecondsRef.current = 0;
+    viewedRef.current = false;
+    endedRef.current = false;
+  };
+
+  const beginPlayback = () => {
+    refreshTelemetrySession();
+    if (!endedRef.current) return;
+    viewIdRef.current = createTelemetryId();
+    watchedSecondsRef.current = 0;
+    pendingSecondsRef.current = 0;
+    viewedRef.current = false;
+    endedRef.current = false;
+  };
+
   const handlePlay = () => {
+    beginPlayback();
     setPlaying(true);
   };
 
   const handlePlaying = () => {
+    beginPlayback();
     if (!viewedRef.current) {
       viewedRef.current = true;
       recordTelemetry(1, 0);
@@ -519,20 +608,25 @@ export function ChildPlayer() {
 
   useEffect(() => {
     viewedRef.current = false;
+    watchedSecondsRef.current = 0;
+    endedRef.current = false;
     playingSinceRef.current = null;
     pendingSecondsRef.current = 0;
   }, [mediaId]);
   useEffect(() => {
     if (!playing) return undefined;
-    const interval = window.setInterval(() => flushTelemetry(false), 10_000);
+    const interval = window.setInterval(
+      () => flushTelemetry({ stop: false }),
+      10_000,
+    );
     return () => window.clearInterval(interval);
   }, [flushTelemetry, playing]);
   useEffect(() => {
-    const flush = () => flushTelemetry();
+    const flush = () => flushTelemetry({ ended: true });
     window.addEventListener('pagehide', flush);
     return () => {
       window.removeEventListener('pagehide', flush);
-      flushTelemetry();
+      flushTelemetry({ ended: true });
     };
   }, [flushTelemetry]);
   useEffect(() => {
@@ -607,7 +701,10 @@ export function ChildPlayer() {
   return (
     <ChildFrame>
       <Container maxWidth="xl" sx={{ py: { xs: 3, md: 5 } }}>
-        <BackButton to={backTo} />
+        <BackButton
+          to={backTo}
+          onExit={() => flushTelemetry({ ended: true })}
+        />
         {error ? (
           <ErrorState message={error} retry={load} childFriendly />
         ) : media === null ? (
@@ -669,7 +766,8 @@ export function ChildPlayer() {
                     setPlaying(false);
                   }}
                   onEnded={() => {
-                    flushTelemetry();
+                    endedRef.current = true;
+                    flushTelemetry({ ended: true, completed: true });
                     setEnding('choice');
                     setPlaying(false);
                   }}
@@ -873,7 +971,10 @@ export function ChildPlayer() {
                       <Button
                         variant="contained"
                         aria-label={t('child.finish')}
-                        onClick={() => setEnding('goodbye')}
+                        onClick={() => {
+                          clearTelemetrySession();
+                          setEnding('goodbye');
+                        }}
                         sx={{
                           flex: 1,
                           minWidth: 0,

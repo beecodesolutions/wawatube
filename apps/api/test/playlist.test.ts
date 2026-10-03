@@ -33,6 +33,7 @@ test('playlist imports persist extraction, preserve categories, and retry member
       '0002_category_thumbnails.sql',
       '0003_telemetry.sql',
       '0004_playlist_monitor.sql',
+      '0006_watch_telemetry.sql',
     ])
       await sql.unsafe(
         await readFile(
