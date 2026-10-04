@@ -636,6 +636,41 @@ export function ChildPlayer() {
       document.removeEventListener('fullscreenchange', syncFullscreen);
   }, []);
 
+  const togglePlayback = useCallback(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (video.paused)
+      void video.play().catch(() => setError(t('child.playerError')));
+    else video.pause();
+  }, [t]);
+
+  useEffect(() => {
+    if (!expanded || ending !== 'watching') return;
+    const handleSpace = (event: KeyboardEvent) => {
+      if (
+        event.code !== 'Space' ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.shiftKey ||
+        event
+          .composedPath()
+          .some(
+            (target) =>
+              target instanceof HTMLElement &&
+              (target.isContentEditable ||
+                target.matches('input, textarea, select')),
+          )
+      )
+        return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (!event.repeat) togglePlayback();
+    };
+    document.addEventListener('keydown', handleSpace, true);
+    return () => document.removeEventListener('keydown', handleSpace, true);
+  }, [expanded, ending, togglePlayback]);
+
   useEffect(() => {
     if (!expanded && ending === 'watching') return;
     const previousOverflow = document.body.style.overflow;
@@ -827,15 +862,7 @@ export function ChildPlayer() {
                 )}
                 {ending === 'watching' && (
                   <IconButton
-                    onClick={() => {
-                      const video = videoRef.current;
-                      if (!video) return;
-                      if (video.paused)
-                        void video
-                          .play()
-                          .catch(() => setError(t('child.playerError')));
-                      else video.pause();
-                    }}
+                    onClick={togglePlayback}
                     aria-label={t(playing ? 'child.pause' : 'child.play')}
                     sx={{
                       position: 'absolute',
