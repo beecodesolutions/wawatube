@@ -171,53 +171,75 @@ export class TelemetryService {
     const utcVideoDay = sql<string>`to_char(
       ${videoViews.startedAt} at time zone 'UTC', 'YYYY-MM-DD'
     )`;
-    const [daily, dailyVideos, videos, recordedDaily] = await Promise.all([
-      this.db
-        .select({
-          date: telemetryDaily.day,
-          seconds: telemetryDaily.seconds,
-          views: telemetryDaily.views,
-        })
-        .from(telemetryDaily)
-        .orderBy(asc(telemetryDaily.day)),
-      this.db
-        .select({
-          date: localVideoDay,
-          mediaId: mediaItems.id,
-          title: mediaItems.title,
-          seconds: sql<number>`sum(${videoViews.watchedSeconds})::int`,
-          views: sql<number>`count(*)::int`,
-        })
-        .from(videoViews)
-        .innerJoin(mediaItems, eq(mediaItems.id, videoViews.mediaItemId))
-        .groupBy(sql`1`, mediaItems.id, mediaItems.title)
-        .orderBy(sql`1`, asc(mediaItems.title)),
-      this.db
-        .select({
-          mediaId: mediaItems.id,
-          title: mediaItems.title,
-          thumbnailRef: mediaItems.thumbnailRef,
-          sourceType: mediaItems.sourceType,
-          views: sql<number>`coalesce(${telemetryVideoViews.views}, 0)`,
-        })
-        .from(mediaItems)
-        .leftJoin(
-          telemetryVideoViews,
-          eq(telemetryVideoViews.mediaItemId, mediaItems.id),
-        )
-        .orderBy(
-          desc(sql`coalesce(${telemetryVideoViews.views}, 0)`),
-          asc(mediaItems.title),
-        ),
-      this.db
-        .select({
-          date: utcVideoDay,
-          seconds: sql<number>`sum(${videoViews.watchedSeconds})::int`,
-          views: sql<number>`count(*)::int`,
-        })
-        .from(videoViews)
-        .groupBy(utcVideoDay),
-    ]);
+    const [daily, dailyVideos, videos, recordedDaily, sessionViews] =
+      await Promise.all([
+        this.db
+          .select({
+            date: telemetryDaily.day,
+            seconds: telemetryDaily.seconds,
+            views: telemetryDaily.views,
+          })
+          .from(telemetryDaily)
+          .orderBy(asc(telemetryDaily.day)),
+        this.db
+          .select({
+            date: localVideoDay,
+            mediaId: mediaItems.id,
+            title: mediaItems.title,
+            seconds: sql<number>`sum(${videoViews.watchedSeconds})::int`,
+            views: sql<number>`count(*)::int`,
+          })
+          .from(videoViews)
+          .innerJoin(mediaItems, eq(mediaItems.id, videoViews.mediaItemId))
+          .groupBy(sql`1`, mediaItems.id, mediaItems.title)
+          .orderBy(sql`1`, asc(mediaItems.title)),
+        this.db
+          .select({
+            mediaId: mediaItems.id,
+            title: mediaItems.title,
+            thumbnailRef: mediaItems.thumbnailRef,
+            sourceType: mediaItems.sourceType,
+            views: sql<number>`coalesce(${telemetryVideoViews.views}, 0)`,
+          })
+          .from(mediaItems)
+          .leftJoin(
+            telemetryVideoViews,
+            eq(telemetryVideoViews.mediaItemId, mediaItems.id),
+          )
+          .orderBy(
+            desc(sql`coalesce(${telemetryVideoViews.views}, 0)`),
+            asc(mediaItems.title),
+          ),
+        this.db
+          .select({
+            date: utcVideoDay,
+            seconds: sql<number>`sum(${videoViews.watchedSeconds})::int`,
+            views: sql<number>`count(*)::int`,
+          })
+          .from(videoViews)
+          .groupBy(utcVideoDay),
+        this.db
+          .select({
+            sessionId: watchSessions.id,
+            startedAt: watchSessions.startedAt,
+            lastActivityAt: watchSessions.lastActivityAt,
+            endedAt: watchSessions.endedAt,
+            id: videoViews.id,
+            mediaId: mediaItems.id,
+            title: mediaItems.title,
+            thumbnailRef: mediaItems.thumbnailRef,
+            sourceType: mediaItems.sourceType,
+            seconds: videoViews.watchedSeconds,
+          })
+          .from(watchSessions)
+          .innerJoin(videoViews, eq(videoViews.sessionId, watchSessions.id))
+          .innerJoin(mediaItems, eq(mediaItems.id, videoViews.mediaItemId))
+          .orderBy(
+            desc(watchSessions.startedAt),
+            asc(videoViews.startedAt),
+            asc(videoViews.id),
+          ),
+      ]);
     // Legacy counters lack timestamps; retain only their unassigned UTC totals.
     const recordedByDay = new Map(recordedDaily.map((day) => [day.date, day]));
     // A recorded view can cross UTC midnight while counters update on packet day.
@@ -269,7 +291,32 @@ export class TelemetryService {
       day.push(segment);
       videosByDay.set(video.date, day);
     }
+    const sessions = new Map<string, TelemetryReport['sessions'][number]>();
+    for (const view of sessionViews) {
+      const session = sessions.get(view.sessionId) ?? {
+        id: view.sessionId,
+        startedAt: view.startedAt.toISOString(),
+        endedAt: (view.endedAt ?? view.lastActivityAt).toISOString(),
+        active:
+          view.endedAt === null &&
+          Date.now() - view.lastActivityAt.getTime() < 30 * 60 * 1000,
+        seconds: 0,
+        videos: [],
+      };
+      session.seconds += view.seconds;
+      session.videos.push({
+        id: view.id,
+        mediaId: view.mediaId,
+        title: view.title,
+        thumbnailUrl:
+          view.thumbnailRef || view.sourceType === 'LOCAL'
+            ? `/api/admin/media/${view.mediaId}/thumbnail`
+            : null,
+      });
+      sessions.set(view.sessionId, session);
+    }
     return {
+      sessions: [...sessions.values()],
       daily: [...totals.values()]
         .filter((day) => day.seconds || day.views)
         .sort((a, b) => a.date.localeCompare(b.date))

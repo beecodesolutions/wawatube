@@ -583,6 +583,24 @@ test('API isolates hidden media, validates bodies, serves local ranges and resum
       headers: admin,
     });
     assert.equal(telemetry.statusCode, 200);
+    const sessions = telemetry.json().sessions;
+    assert.equal(sessions.length, 1);
+    assert.equal(sessions[0].id, sessionId);
+    assert.equal(sessions[0].seconds, 12);
+    assert.equal(sessions[0].videos.length, 2);
+    assert.deepEqual(
+      sessions[0].videos.map((video: { id: string; mediaId: string }) => ({
+        id: video.id,
+        mediaId: video.mediaId,
+      })),
+      [
+        { id: viewId, mediaId: hiddenId },
+        { id: secondViewId, mediaId: hiddenId },
+      ],
+    );
+    assert.ok(
+      Date.parse(sessions[0].endedAt) >= Date.parse(sessions[0].startedAt),
+    );
     assert.deepEqual(telemetry.json().videos, [
       {
         mediaId: hiddenId,

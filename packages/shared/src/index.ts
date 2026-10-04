@@ -29,6 +29,19 @@ export interface PlaybackTelemetry {
   ended?: boolean;
 }
 export interface TelemetryReport {
+  sessions: {
+    id: string;
+    startedAt: string;
+    endedAt: string;
+    active: boolean;
+    seconds: number;
+    videos: {
+      id: string;
+      mediaId: string;
+      title: string;
+      thumbnailUrl: string | null;
+    }[];
+  }[];
   daily: {
     date: string;
     seconds: number;

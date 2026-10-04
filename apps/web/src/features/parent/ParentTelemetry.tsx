@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
   Box,
   Paper,
   Stack,
@@ -12,6 +15,7 @@ import {
   TableRow,
   Typography,
 } from '@mui/material';
+import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded';
 import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded';
 import { useTheme } from '@mui/material/styles';
 import type { TelemetryReport } from '@wawatube/shared';
@@ -29,7 +33,11 @@ import { api, errorText } from '../../api';
 import { EmptyState, ErrorState, LoadingState } from '../../components/Shared';
 import { lastSevenDays } from './telemetry-dates';
 
-import { categorySegments, type VideoCategory } from './telemetry-categories';
+import {
+  categorySegments,
+  sessionCategories,
+  type VideoCategory,
+} from './telemetry-categories';
 
 function formatDuration(seconds: number) {
   const minutes = Math.round(Math.max(0, seconds) / 60);
@@ -38,7 +46,7 @@ function formatDuration(seconds: number) {
 }
 
 export function AdminTelemetry() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [telemetry, setTelemetry] = useState<TelemetryReport | null>(null);
   const [videoCategories, setVideoCategories] = useState<
     Record<string, VideoCategory>
@@ -160,86 +168,106 @@ export function AdminTelemetry() {
               variant="h2"
               sx={{ fontSize: { xs: '1.6rem', md: '2rem' } }}
             >
+              {t('parent.telemetrySessions')}
+            </Typography>
+            {(telemetry.sessions ?? []).length === 0 ? (
+              <EmptyState text={t('parent.telemetryNoData')} />
+            ) : (
+              telemetry.sessions.map((session) => {
+                const categories = sessionCategories(
+                  session.videos,
+                  videoCategories,
+                );
+                const dateTime = (value: string) =>
+                  new Date(value).toLocaleString(i18n.resolvedLanguage, {
+                    dateStyle: 'medium',
+                    timeStyle: 'short',
+                  });
+                return (
+                  <Accordion key={session.id} disableGutters>
+                    <AccordionSummary
+                      expandIcon={<ExpandMoreRoundedIcon />}
+                      id={`session-${session.id}`}
+                      aria-controls={`session-details-${session.id}`}
+                    >
+                      <Stack spacing={0.5}>
+                        <Typography fontWeight={700}>
+                          {dateTime(session.startedAt)}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {formatDuration(session.seconds)} ·{' '}
+                          {session.videos.length}{' '}
+                          {t('parent.telemetrySessionVideos', {
+                            count: session.videos.length,
+                          })}
+                          {session.active
+                            ? ` · ${t('parent.telemetrySessionActive')}`
+                            : ''}
+                        </Typography>
+                      </Stack>
+                    </AccordionSummary>
+                    <AccordionDetails id={`session-details-${session.id}`}>
+                      <Stack spacing={2}>
+                        <Stack spacing={0.5}>
+                          <Typography>
+                            {t('parent.telemetrySessionStart')}:{' '}
+                            {dateTime(session.startedAt)}
+                          </Typography>
+                          <Typography>
+                            {t(
+                              session.active
+                                ? 'parent.telemetrySessionLastActivity'
+                                : 'parent.telemetrySessionEnd',
+                            )}
+                            : {dateTime(session.endedAt)}
+                          </Typography>
+                          <Typography>
+                            {t('parent.telemetrySessionDuration')}:{' '}
+                            {formatDuration(
+                              (new Date(session.endedAt).getTime() -
+                                new Date(session.startedAt).getTime()) /
+                                1000,
+                            )}
+                          </Typography>
+                          <Typography>
+                            {t('parent.telemetryTime')}:{' '}
+                            {formatDuration(session.seconds)}
+                          </Typography>
+                        </Stack>
+                        <Stack spacing={0.5}>
+                          <Typography fontWeight={700}>
+                            {t('parent.telemetrySessionCategories')}
+                          </Typography>
+                          {categories.map((category) => (
+                            <Typography key={category.id}>
+                              {category.name || t('parent.noCategory')}:{' '}
+                              {category.count} ·{' '}
+                              {Math.round(
+                                (category.count / session.videos.length) * 100,
+                              )}
+                              %
+                            </Typography>
+                          ))}
+                        </Stack>
+                        <VideoTable videos={session.videos} />
+                      </Stack>
+                    </AccordionDetails>
+                  </Accordion>
+                );
+              })
+            )}
+          </Stack>
+          <Stack spacing={1}>
+            <Typography
+              variant="h2"
+              sx={{ fontSize: { xs: '1.6rem', md: '2rem' } }}
+            >
               {t('parent.telemetryVideos')}
             </Typography>
             {viewedVideos.length === 0 ? (
               <EmptyState text={t('parent.telemetryNoData')} />
             ) : (
-              <TableContainer component={Paper}>
-                <Table
-                  sx={{
-                    tableLayout: 'fixed',
-                    '& .MuiTableCell-root': { px: { xs: 1, sm: 2 } },
-                  }}
-                >
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>{t('parent.mediaTitle')}</TableCell>
-                      <TableCell
-                        align="right"
-                        sx={{ width: { xs: 64, sm: 88 } }}
-                      >
-                        <VisibilityRoundedIcon
-                          titleAccess={t('parent.telemetryViews')}
-                          fontSize="small"
-                          color="action"
-                          sx={{ verticalAlign: 'middle' }}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {viewedVideos.map((video) => (
-                      <TableRow key={video.mediaId}>
-                        <TableCell>
-                          <Stack
-                            direction={{ xs: 'column', sm: 'row' }}
-                            spacing={{ xs: 1, sm: 1.5 }}
-                            sx={{
-                              alignItems: { xs: 'flex-start', sm: 'center' },
-                            }}
-                          >
-                            {video.thumbnailUrl && (
-                              <Box
-                                component="img"
-                                src={video.thumbnailUrl}
-                                alt=""
-                                sx={{
-                                  width: { xs: 96, sm: 88 },
-                                  height: { xs: 54, sm: 50 },
-                                  objectFit: 'cover',
-                                  borderRadius: 1,
-                                  flexShrink: 0,
-                                }}
-                              />
-                            )}
-                            <Typography
-                              component="span"
-                              variant="body2"
-                              title={video.title}
-                              sx={{
-                                minWidth: 0,
-                                overflowWrap: 'anywhere',
-                                display: { xs: '-webkit-box', sm: 'block' },
-                                WebkitLineClamp: { xs: 2, sm: 'unset' },
-                                WebkitBoxOrient: 'vertical',
-                                overflow: 'hidden',
-                              }}
-                            >
-                              {video.title}
-                            </Typography>
-                          </Stack>
-                        </TableCell>
-                        <TableCell align="right">
-                          <Typography component="span" variant="h5">
-                            {video.views}
-                          </Typography>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+              <VideoTable videos={viewedVideos} showViews />
             )}
           </Stack>
         </>
@@ -382,5 +410,96 @@ function DailyChart({
         </ResponsiveContainer>
       </Box>
     </Paper>
+  );
+}
+
+function VideoTable({
+  videos,
+  showViews = false,
+}: {
+  videos: (
+    | TelemetryReport['videos'][number]
+    | TelemetryReport['sessions'][number]['videos'][number]
+  )[];
+  showViews?: boolean;
+}) {
+  const { t } = useTranslation();
+  return (
+    <TableContainer component={Paper}>
+      <Table
+        sx={{
+          tableLayout: 'fixed',
+          '& .MuiTableCell-root': { px: { xs: 1, sm: 2 } },
+        }}
+      >
+        <TableHead>
+          <TableRow>
+            <TableCell>{t('parent.mediaTitle')}</TableCell>
+            {showViews && (
+              <TableCell align="right" sx={{ width: { xs: 64, sm: 88 } }}>
+                <VisibilityRoundedIcon
+                  titleAccess={t('parent.telemetryViews')}
+                  fontSize="small"
+                  color="action"
+                  sx={{ verticalAlign: 'middle' }}
+                />
+              </TableCell>
+            )}
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {videos.map((video) => (
+            <TableRow key={'id' in video ? video.id : video.mediaId}>
+              <TableCell>
+                <Stack
+                  direction={{ xs: 'column', sm: 'row' }}
+                  spacing={{ xs: 1, sm: 1.5 }}
+                  sx={{
+                    alignItems: { xs: 'flex-start', sm: 'center' },
+                  }}
+                >
+                  {video.thumbnailUrl && (
+                    <Box
+                      component="img"
+                      src={video.thumbnailUrl}
+                      alt=""
+                      sx={{
+                        width: { xs: 96, sm: 88 },
+                        height: { xs: 54, sm: 50 },
+                        objectFit: 'cover',
+                        borderRadius: 1,
+                        flexShrink: 0,
+                      }}
+                    />
+                  )}
+                  <Typography
+                    component="span"
+                    variant="body2"
+                    title={video.title}
+                    sx={{
+                      minWidth: 0,
+                      overflowWrap: 'anywhere',
+                      display: { xs: '-webkit-box', sm: 'block' },
+                      WebkitLineClamp: { xs: 2, sm: 'unset' },
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    {video.title}
+                  </Typography>
+                </Stack>
+              </TableCell>
+              {showViews && (
+                <TableCell align="right">
+                  <Typography component="span" variant="h5">
+                    {'views' in video ? video.views : ''}
+                  </Typography>
+                </TableCell>
+              )}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </TableContainer>
   );
 }

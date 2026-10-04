@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { categorySegments } from '../src/features/parent/telemetry-categories.ts';
+import {
+  categorySegments,
+  sessionCategories,
+} from '../src/features/parent/telemetry-categories.ts';
 
 test('merges category videos and orders each day largest first', () => {
   const assignments = {
@@ -33,4 +36,23 @@ test('merges category videos and orders each day largest first', () => {
     'music',
   );
   assert.deepEqual(categorySegments([], assignments), []);
+});
+
+test('session categories count repeated videos and uncategorized views', () => {
+  const video = { id: 'view', mediaId: 'a', title: 'A', thumbnailUrl: null };
+  assert.deepEqual(
+    sessionCategories(
+      [
+        video,
+        { ...video, id: 'replay' },
+        { ...video, id: 'other', mediaId: 'missing' },
+      ],
+      { a: { id: 'nature', name: 'Nature', color: null } },
+    ).map(({ id, count }) => ({ id, count })),
+    [
+      { id: 'nature', count: 2 },
+      { id: 'uncategorized', count: 1 },
+    ],
+  );
+  assert.deepEqual(sessionCategories([], {}), []);
 });

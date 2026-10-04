@@ -21,3 +21,23 @@ export function categorySegments(
     (a, b) => b.minutes - a.minutes || a.id.localeCompare(b.id),
   );
 }
+
+export function sessionCategories(
+  videos: TelemetryReport['sessions'][number]['videos'],
+  assignments: Record<string, VideoCategory>,
+) {
+  const grouped = new Map<string, VideoCategory & { count: number }>();
+  for (const video of videos) {
+    const category = assignments[video.mediaId] ?? {
+      id: 'uncategorized',
+      name: '',
+      color: null,
+    };
+    const segment = grouped.get(category.id) ?? { ...category, count: 0 };
+    segment.count++;
+    grouped.set(category.id, segment);
+  }
+  return [...grouped.values()].sort(
+    (a, b) => b.count - a.count || a.id.localeCompare(b.id),
+  );
+}
