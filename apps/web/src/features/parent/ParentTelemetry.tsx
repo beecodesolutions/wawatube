@@ -5,6 +5,7 @@ import {
   AccordionDetails,
   AccordionSummary,
   Box,
+  Pagination,
   Paper,
   Stack,
   Table,
@@ -31,7 +32,7 @@ import {
 } from 'recharts';
 import { api, errorText } from '../../api';
 import { EmptyState, ErrorState, LoadingState } from '../../components/Shared';
-import { lastSevenDays } from './telemetry-dates';
+import { lastSevenDays, sessionWeek, usageDayLabel } from './telemetry-dates';
 
 import {
   categorySegments,
@@ -53,6 +54,7 @@ export function AdminTelemetry() {
   >({});
   const [error, setError] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
+  const [weekOffset, setWeekOffset] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -88,6 +90,25 @@ export function AdminTelemetry() {
   }, [reload, t]);
 
   const days = telemetry ? lastSevenDays(telemetry.daily) : [];
+  const now = new Date();
+  const sessions = telemetry?.sessions ?? [];
+  const week = sessionWeek(sessions, weekOffset, now);
+  const oldestStart = sessions.reduce(
+    (oldest, session) =>
+      Math.min(oldest, new Date(session.startedAt).getTime()),
+    now.getTime(),
+  );
+  const oldestDay = new Date(oldestStart);
+  const calendarDay = (date: Date) =>
+    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+  const weekCount =
+    Math.floor((calendarDay(now) - calendarDay(oldestDay)) / (7 * 86400000)) +
+    1;
+  const time = (value: string) =>
+    new Date(value).toLocaleTimeString(i18n.resolvedLanguage, {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   const viewedVideos =
     telemetry?.videos.filter((video) => video.views > 0) ?? [];
 
@@ -170,70 +191,43 @@ export function AdminTelemetry() {
             >
               {t('parent.telemetrySessions')}
             </Typography>
-            {(telemetry.sessions ?? []).length === 0 ? (
-              <EmptyState text={t('parent.telemetryNoData')} />
-            ) : (
-              telemetry.sessions.map((session) => {
-                const categories = sessionCategories(
-                  session.videos,
-                  videoCategories,
-                );
-                const dateTime = (value: string) =>
-                  new Date(value).toLocaleString(i18n.resolvedLanguage, {
-                    dateStyle: 'medium',
-                    timeStyle: 'short',
-                  });
-                return (
-                  <Accordion key={session.id} disableGutters>
-                    <AccordionSummary
-                      expandIcon={<ExpandMoreRoundedIcon />}
-                      id={`session-${session.id}`}
-                      aria-controls={`session-details-${session.id}`}
-                    >
-                      <Stack spacing={0.5}>
-                        <Typography fontWeight={700}>
-                          {dateTime(session.startedAt)}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {formatDuration(session.seconds)} ·{' '}
-                          {session.videos.length}{' '}
-                          {t('parent.telemetrySessionVideos', {
-                            count: session.videos.length,
-                          })}
-                          {session.active
-                            ? ` · ${t('parent.telemetrySessionActive')}`
-                            : ''}
-                        </Typography>
-                      </Stack>
-                    </AccordionSummary>
-                    <AccordionDetails id={`session-details-${session.id}`}>
+            {week.map((day, index) => {
+              const categories = sessionCategories(day.videos, videoCategories);
+              const label =
+                weekOffset === 0 && index < 2
+                  ? t(
+                      index === 0
+                        ? 'parent.telemetryToday'
+                        : 'parent.telemetryYesterday',
+                    )
+                  : usageDayLabel(
+                      day.date,
+                      weekOffset,
+                      now,
+                      i18n.resolvedLanguage,
+                    );
+              return (
+                <Accordion key={day.key} disableGutters>
+                  <AccordionSummary
+                    expandIcon={<ExpandMoreRoundedIcon />}
+                    id={`day-${day.key}`}
+                    aria-controls={`day-details-${day.key}`}
+                  >
+                    <Stack spacing={0.5}>
+                      <Typography fontWeight={700}>{label}</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {formatDuration(day.seconds)} · {day.videos.length}{' '}
+                        {t('parent.telemetrySessionVideos', {
+                          count: day.videos.length,
+                        })}
+                      </Typography>
+                    </Stack>
+                  </AccordionSummary>
+                  <AccordionDetails id={`day-details-${day.key}`}>
+                    {day.sessions.length === 0 ? (
+                      <EmptyState text={t('parent.telemetryNoData')} />
+                    ) : (
                       <Stack spacing={2}>
-                        <Stack spacing={0.5}>
-                          <Typography>
-                            {t('parent.telemetrySessionStart')}:{' '}
-                            {dateTime(session.startedAt)}
-                          </Typography>
-                          <Typography>
-                            {t(
-                              session.active
-                                ? 'parent.telemetrySessionLastActivity'
-                                : 'parent.telemetrySessionEnd',
-                            )}
-                            : {dateTime(session.endedAt)}
-                          </Typography>
-                          <Typography>
-                            {t('parent.telemetrySessionDuration')}:{' '}
-                            {formatDuration(
-                              (new Date(session.endedAt).getTime() -
-                                new Date(session.startedAt).getTime()) /
-                                1000,
-                            )}
-                          </Typography>
-                          <Typography>
-                            {t('parent.telemetryTime')}:{' '}
-                            {formatDuration(session.seconds)}
-                          </Typography>
-                        </Stack>
                         <Stack spacing={0.5}>
                           <Typography fontWeight={700}>
                             {t('parent.telemetrySessionCategories')}
@@ -243,19 +237,59 @@ export function AdminTelemetry() {
                               {category.name || t('parent.noCategory')}:{' '}
                               {category.count} ·{' '}
                               {Math.round(
-                                (category.count / session.videos.length) * 100,
+                                (category.count / day.videos.length) * 100,
                               )}
                               %
                             </Typography>
                           ))}
                         </Stack>
-                        <VideoTable videos={session.videos} />
+                        {day.sessions.map((session, sessionIndex) => (
+                          <Stack key={session.id} spacing={1}>
+                            <Stack
+                              direction={{ xs: 'column', sm: 'row' }}
+                              spacing={1}
+                              alignItems={{ xs: 'flex-start', sm: 'baseline' }}
+                            >
+                              {day.sessions.length > 1 && (
+                                <Typography variant="h6">
+                                  {t('parent.telemetrySessionNumber', {
+                                    number: sessionIndex + 1,
+                                  })}
+                                </Typography>
+                              )}
+                              <Typography
+                                variant="body2"
+                                color="text.secondary"
+                              >
+                                {t('parent.telemetrySessionStart')}:{' '}
+                                {time(session.startedAt)} ·{' '}
+                                {t(
+                                  session.active
+                                    ? 'parent.telemetrySessionLastActivity'
+                                    : 'parent.telemetrySessionEnd',
+                                )}
+                                : {time(session.endedAt)}
+                                {session.active
+                                  ? ` · ${t('parent.telemetrySessionActive')}`
+                                  : ''}
+                              </Typography>
+                            </Stack>
+                            <VideoTable videos={session.videos} />
+                          </Stack>
+                        ))}
                       </Stack>
-                    </AccordionDetails>
-                  </Accordion>
-                );
-              })
-            )}
+                    )}
+                  </AccordionDetails>
+                </Accordion>
+              );
+            })}
+            <Pagination
+              count={weekCount}
+              page={weekOffset + 1}
+              onChange={(_, page) => setWeekOffset(page - 1)}
+              aria-label={t('parent.telemetryWeeks')}
+              sx={{ alignSelf: 'center', pt: 1 }}
+            />
           </Stack>
           <Stack spacing={1}>
             <Typography
