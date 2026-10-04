@@ -189,7 +189,7 @@
   width: clamp(250px, 40vw, 420px);
   height: clamp(167px, 26.667vw, 280px);
   transform: translateX(-50%);
-  overflow: hidden;
+  overflow: visible;
   isolation: isolate;
   --farewell-scene-height: clamp(167px, 26.667vw, 280px);
   --farewell-character-size: clamp(100px, 10vw, 140px);
@@ -278,7 +278,7 @@
 }
 @keyframes cacomixtle-farewell-arrive {
   from {
-    left: calc(-1 * var(--farewell-character-size));
+    left: calc(50% - 50vw - var(--farewell-character-size));
   }
   to {
     left: var(--farewell-stop-x);
