@@ -629,6 +629,48 @@ test('API isolates hidden media, validates bodies, serves local ranges and resum
         videos: [{ mediaId: hiddenId, title: 'Hidden', seconds: 12, views: 2 }],
       },
     ]);
+    const disabledApp = createApp({
+      db,
+      config: { ...config, localMediaRoot: mediaRoot, skipTelemetry: true },
+      media,
+      imports,
+    });
+    try {
+      const before = await db.select().from(schema.videoViews);
+      for (const payload of [
+        { views: 1, seconds: 15 },
+        {
+          views: 1,
+          seconds: 15,
+          sessionId,
+          viewId: '55555555-5555-4555-8555-555555555555',
+          watchedSeconds: 15,
+        },
+      ]) {
+        assert.equal(
+          (
+            await disabledApp.inject({
+              method: 'POST',
+              url: `/api/kids/media/${hiddenId}/telemetry`,
+              payload,
+            })
+          ).statusCode,
+          204,
+        );
+      }
+      assert.deepEqual(await db.select().from(schema.videoViews), before);
+      assert.deepEqual(
+        (
+          await disabledApp.inject({
+            url: '/api/admin/telemetry',
+            headers: admin,
+          })
+        ).json(),
+        telemetry.json(),
+      );
+    } finally {
+      await disabledApp.close();
+    }
     assert.equal(
       (
         await app.inject({

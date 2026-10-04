@@ -29,3 +29,20 @@ test('parent PIN bypass requires explicit development mode and flag', () => {
     false,
   );
 });
+
+test('telemetry skip requires explicit development mode and flag', () => {
+  const env = { DATABASE_URL: 'postgres://test', DEV_SKIP_TELEMETRY: 'true' };
+  assert.equal(
+    loadConfig({ ...env, NODE_ENV: 'production' }).skipTelemetry,
+    false,
+  );
+  assert.equal(
+    loadConfig({ ...env, NODE_ENV: 'development' }).skipTelemetry,
+    true,
+  );
+  assert.equal(
+    loadConfig({ ...env, NODE_ENV: 'development', DEV_SKIP_TELEMETRY: 'false' })
+      .skipTelemetry,
+    false,
+  );
+});

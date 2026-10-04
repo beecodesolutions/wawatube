@@ -168,7 +168,7 @@ export function createApp(options: AppOptions): FastifyInstance {
     { schema: telemetryBody },
     async (request, reply) => {
       const row = await library.childItem(id(request.params.id));
-      await telemetry.record(row.id, request.body);
+      if (!config.skipTelemetry) await telemetry.record(row.id, request.body);
       return reply.code(204).send();
     },
   );

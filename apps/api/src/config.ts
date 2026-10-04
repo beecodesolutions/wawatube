@@ -13,6 +13,7 @@ export interface AppConfig {
   sessionHours: number;
   secureCookies: boolean;
   skipParentPin: boolean;
+  skipTelemetry: boolean;
   ffprobePath: string;
 }
 
@@ -68,6 +69,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     skipParentPin:
       value('NODE_ENV') === 'development' &&
       value('DEV_SKIP_PARENT_PIN').toLowerCase() === 'true',
+    skipTelemetry:
+      value('NODE_ENV') === 'development' &&
+      value('DEV_SKIP_TELEMETRY').toLowerCase() === 'true',
     ffprobePath: value('FFPROBE_PATH', 'ffprobe'),
   };
 }
