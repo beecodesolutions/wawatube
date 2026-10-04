@@ -18,6 +18,7 @@ import type { TelemetryReport } from '@wawatube/shared';
 import {
   Bar,
   CartesianGrid,
+  Cell,
   BarChart,
   ResponsiveContainer,
   Tooltip,
@@ -26,25 +27,9 @@ import {
 } from 'recharts';
 import { api, errorText } from '../../api';
 import { EmptyState, ErrorState, LoadingState } from '../../components/Shared';
+import { lastSevenDays } from './telemetry-dates';
 
-const dayKey = (date: Date) => date.toISOString().slice(0, 10);
-
-function lastSevenDays(daily: TelemetryReport['daily']) {
-  const today = new Date();
-  const byDate = new Map(daily.map((day) => [day.date, day]));
-  return Array.from({ length: 7 }, (_, index) => {
-    const date = new Date(
-      Date.UTC(
-        today.getUTCFullYear(),
-        today.getUTCMonth(),
-        today.getUTCDate() - 6 + index,
-      ),
-    );
-    return (
-      byDate.get(dayKey(date)) ?? { date: dayKey(date), seconds: 0, views: 0 }
-    );
-  });
-}
+import { categorySegments, type VideoCategory } from './telemetry-categories';
 
 function formatDuration(seconds: number) {
   const minutes = Math.round(Math.max(0, seconds) / 60);
@@ -55,7 +40,9 @@ function formatDuration(seconds: number) {
 export function AdminTelemetry() {
   const { t } = useTranslation();
   const [telemetry, setTelemetry] = useState<TelemetryReport | null>(null);
-  const [videoColors, setVideoColors] = useState<Record<string, string>>({});
+  const [videoCategories, setVideoCategories] = useState<
+    Record<string, VideoCategory>
+  >({});
   const [error, setError] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
 
@@ -66,17 +53,21 @@ export function AdminTelemetry() {
         const orderedCategories = [...categories].sort(
           (a, b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id),
         );
-        const colors: Record<string, string> = {};
+        const assignments: Record<string, VideoCategory> = {};
         for (const media of library.media) {
           const category = orderedCategories.find((item) =>
             media.categoryIds.includes(item.id),
           );
-          const color = category?.color;
-          if (color) colors[media.id] = color;
+          if (category)
+            assignments[media.id] = {
+              id: category.id,
+              name: category.name,
+              color: category.color,
+            };
         }
         if (active) {
           setTelemetry(data);
-          setVideoColors(colors);
+          setVideoCategories(assignments);
           setError(null);
         }
       })
@@ -157,10 +148,11 @@ export function AdminTelemetry() {
             </Typography>
             <DailyChart
               days={days}
-              videoColors={videoColors}
+              videoCategories={videoCategories}
               label={t('parent.telemetryTime')}
               viewsLabel={t('parent.telemetryViews')}
               legacyLabel={t('parent.telemetryLegacy')}
+              uncategorizedLabel={t('parent.noCategory')}
             />
           </Stack>
           <Stack spacing={1}>
@@ -261,30 +253,23 @@ function DailyChart({
   label,
   viewsLabel,
   legacyLabel,
-  videoColors,
+  uncategorizedLabel,
+  videoCategories,
 }: {
   days: TelemetryReport['daily'];
   label: string;
   viewsLabel: string;
   legacyLabel: string;
-  videoColors: Record<string, string>;
+  uncategorizedLabel: string;
+  videoCategories: Record<string, VideoCategory>;
 }) {
   const theme = useTheme();
-  const videos = [
-    ...new Map(
-      days
-        .flatMap((day) => day.videos ?? [])
-        .map((video) => [video.mediaId, video]),
-    ).values(),
-  ];
   const data = days.map((day) => ({
     date: day.date,
     day: day.date.slice(5),
     minutes: day.seconds / 60,
     views: day.views,
-    segments: Object.fromEntries(
-      (day.videos ?? []).map((video) => [video.mediaId, video.seconds / 60]),
-    ),
+    segments: categorySegments(day.videos ?? [], videoCategories),
     legacy:
       Math.max(
         0,
@@ -311,44 +296,82 @@ function DailyChart({
               filterNull
               content={({ active, payload }) => {
                 if (!active || !payload?.length) return null;
-                const day = days.find(
+                const day = data.find(
                   (day) => day.date === payload[0]?.payload.date,
                 );
                 if (!day) return null;
                 return (
                   <Paper sx={{ p: 1.5, maxWidth: 280 }}>
                     <Typography fontWeight={700}>{day.date}</Typography>
-                    <Typography>
-                      {formatDuration(day.seconds)} · {day.views} {viewsLabel}
-                    </Typography>
-                    {(day.videos ?? []).map((video) => (
+                    {[
+                      ...day.segments,
+                      ...(day.legacy > 0
+                        ? [
+                            {
+                              id: 'legacy',
+                              name: legacyLabel,
+                              color: theme.palette.text.disabled,
+                              minutes: day.legacy,
+                            },
+                          ]
+                        : []),
+                    ].map((category) => (
                       <Typography
-                        key={video.mediaId}
+                        key={category.id}
                         variant="body2"
                         sx={{ mt: 0.5, overflowWrap: 'anywhere' }}
                       >
-                        {video.title}: {formatDuration(video.seconds)} ·{' '}
-                        {video.views} {viewsLabel}
+                        <Box
+                          component="span"
+                          aria-hidden="true"
+                          sx={{
+                            display: 'inline-block',
+                            width: 8,
+                            height: 8,
+                            borderRadius: '50%',
+                            bgcolor:
+                              category.color ?? theme.palette.primary.main,
+                            mr: 0.75,
+                            verticalAlign: 'middle',
+                          }}
+                        />
+                        <Box component="span" sx={{ fontWeight: 700 }}>
+                          {category.name || uncategorizedLabel}
+                        </Box>
+                        : {formatDuration(category.minutes * 60)} ·{' '}
+                        {day.minutes > 0
+                          ? Math.round((category.minutes / day.minutes) * 100)
+                          : 0}
+                        %
                       </Typography>
                     ))}
-                    {data.find((item) => item.date === day.date)?.legacy ? (
-                      <Typography variant="body2">{legacyLabel}</Typography>
-                    ) : null}
                   </Paper>
                 );
               }}
             />
-            {videos.map((video) => (
-              <Bar
-                key={video.mediaId}
-                dataKey={(day) => day.segments[video.mediaId] ?? 0}
-                stackId="time"
-                name={video.title}
-                fill={videoColors[video.mediaId] ?? theme.palette.primary.main}
-                stroke={theme.palette.background.paper}
-                strokeWidth={1}
-              />
-            ))}
+            {Array.from(
+              {
+                length: Math.max(0, ...data.map((day) => day.segments.length)),
+              },
+              (_, index) => (
+                <Bar
+                  key={index}
+                  dataKey={(day) => day.segments[index]?.minutes ?? 0}
+                  stackId="time"
+                  stroke={theme.palette.background.paper}
+                  strokeWidth={1}
+                >
+                  {data.map((day) => (
+                    <Cell
+                      key={day.date}
+                      fill={
+                        day.segments[index]?.color ?? theme.palette.primary.main
+                      }
+                    />
+                  ))}
+                </Bar>
+              ),
+            )}
             <Bar
               dataKey="legacy"
               stackId="time"

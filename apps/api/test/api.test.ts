@@ -611,6 +611,72 @@ test('API isolates hidden media, validates bodies, serves local ranges and resum
         videos: [{ mediaId: hiddenId, title: 'Hidden', seconds: 12, views: 2 }],
       },
     ]);
+    assert.equal(
+      (
+        await app.inject({
+          url: '/api/admin/telemetry?timeZone=Invalid/Zone',
+          headers: admin,
+        })
+      ).statusCode,
+      400,
+    );
+    await db.delete(schema.telemetryDaily);
+    await db
+      .insert(schema.telemetryDaily)
+      .values({ day: '2026-03-08', seconds: 19, views: 3 });
+    await db
+      .update(schema.videoViews)
+      .set({ startedAt: new Date('2026-03-08T05:30:00Z') })
+      .where(eq(schema.videoViews.id, viewId));
+    await db
+      .update(schema.videoViews)
+      .set({ startedAt: new Date('2026-03-08T07:30:00Z') })
+      .where(eq(schema.videoViews.id, secondViewId));
+    const localReport = await app.inject({
+      url: '/api/admin/telemetry?timeZone=America%2FManagua',
+      headers: admin,
+    });
+    assert.equal(localReport.statusCode, 200);
+    assert.deepEqual(localReport.json().daily, [
+      {
+        date: '2026-03-07',
+        seconds: 10,
+        views: 1,
+        videos: [{ mediaId: hiddenId, title: 'Hidden', seconds: 10, views: 1 }],
+      },
+      {
+        date: '2026-03-08',
+        seconds: 9,
+        views: 2,
+        videos: [{ mediaId: hiddenId, title: 'Hidden', seconds: 2, views: 1 }],
+      },
+    ]);
+    const dstReport = await app.inject({
+      url: '/api/admin/telemetry?timeZone=America%2FNew_York',
+      headers: admin,
+    });
+    assert.equal(dstReport.statusCode, 200);
+    assert.equal(dstReport.json().daily.length, 1);
+    assert.equal(dstReport.json().daily[0].seconds, 19);
+    // Packet counters can land the next UTC day; avoid counting that time twice.
+    await db.delete(schema.telemetryDaily);
+    await db.insert(schema.telemetryDaily).values([
+      { day: '2026-03-08', seconds: 7, views: 3 },
+      { day: '2026-03-09', seconds: 12, views: 0 },
+    ]);
+    const overnight = await app.inject({
+      url: '/api/admin/telemetry?timeZone=America%2FManagua',
+      headers: admin,
+    });
+    assert.equal(
+      overnight
+        .json()
+        .daily.reduce(
+          (sum: number, day: { seconds: number }) => sum + day.seconds,
+          0,
+        ),
+      19,
+    );
     const bytes = await app.inject({
       url: `/api/kids/media/${hiddenId}/play`,
       headers: { range: 'bytes=-3' },

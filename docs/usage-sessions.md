@@ -35,3 +35,13 @@ Source edits and the additive migration do not restart systemd. Avoid rebuilding
 After playback ends, refresh reconstruction to include the latest legacy packets,
 then build and restart deliberately. Reload existing player tabs for identified
 view recording; older tabs continue sending the legacy aggregate protocol.
+
+## Report calendar days
+
+The adult report sends the browser's IANA `timeZone` to
+`GET /api/admin/telemetry`. Recorded views group by their start timestamp in
+that zone; their full watched time belongs to that playback's start day.
+Today, yesterday and the seven-day chart use the browser's local calendar.
+Missing timezone defaults to UTC; invalid zones return 400.
+Legacy aggregates have no timestamps. Unassigned legacy time/views retain their
+UTC date; changing timezone cannot reconstruct their exact local date.

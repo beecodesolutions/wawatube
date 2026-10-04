@@ -113,7 +113,12 @@ export const api = {
     return logout;
   },
   adminMedia: () => request<LibraryResponse>('/api/admin/media'),
-  adminTelemetry: () => request<TelemetryReport>('/api/admin/telemetry'),
+  adminTelemetry: () => {
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return request<TelemetryReport>(
+      `/api/admin/telemetry?timeZone=${encodeURIComponent(timeZone)}`,
+    );
+  },
   updateMedia: (id: string, update: MediaUpdate) =>
     request<AdminMedia>(`/api/admin/media/${encodeURIComponent(id)}`, {
       method: 'PATCH',

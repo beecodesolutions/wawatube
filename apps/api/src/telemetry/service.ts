@@ -158,11 +158,20 @@ export class TelemetryService {
       });
   }
 
-  async report(): Promise<TelemetryReport> {
+  async report(timeZone = 'UTC'): Promise<TelemetryReport> {
+    try {
+      timeZone = new Intl.DateTimeFormat('en', { timeZone }).resolvedOptions()
+        .timeZone;
+    } catch {
+      throw new ApiFailure(400, 'INVALID_TIME_ZONE');
+    }
+    const localVideoDay = sql<string>`to_char(
+      ${videoViews.startedAt} at time zone ${timeZone}, 'YYYY-MM-DD'
+    )`;
     const utcVideoDay = sql<string>`to_char(
       ${videoViews.startedAt} at time zone 'UTC', 'YYYY-MM-DD'
     )`;
-    const [daily, dailyVideos, videos] = await Promise.all([
+    const [daily, dailyVideos, videos, recordedDaily] = await Promise.all([
       this.db
         .select({
           date: telemetryDaily.day,
@@ -173,7 +182,7 @@ export class TelemetryService {
         .orderBy(asc(telemetryDaily.day)),
       this.db
         .select({
-          date: utcVideoDay,
+          date: localVideoDay,
           mediaId: mediaItems.id,
           title: mediaItems.title,
           seconds: sql<number>`sum(${videoViews.watchedSeconds})::int`,
@@ -181,8 +190,8 @@ export class TelemetryService {
         })
         .from(videoViews)
         .innerJoin(mediaItems, eq(mediaItems.id, videoViews.mediaItemId))
-        .groupBy(utcVideoDay, mediaItems.id, mediaItems.title)
-        .orderBy(asc(utcVideoDay), asc(mediaItems.title)),
+        .groupBy(sql`1`, mediaItems.id, mediaItems.title)
+        .orderBy(sql`1`, asc(mediaItems.title)),
       this.db
         .select({
           mediaId: mediaItems.id,
@@ -200,7 +209,51 @@ export class TelemetryService {
           desc(sql`coalesce(${telemetryVideoViews.views}, 0)`),
           asc(mediaItems.title),
         ),
+      this.db
+        .select({
+          date: utcVideoDay,
+          seconds: sql<number>`sum(${videoViews.watchedSeconds})::int`,
+          views: sql<number>`count(*)::int`,
+        })
+        .from(videoViews)
+        .groupBy(utcVideoDay),
     ]);
+    // Legacy counters lack timestamps; retain only their unassigned UTC totals.
+    const recordedByDay = new Map(recordedDaily.map((day) => [day.date, day]));
+    // A recorded view can cross UTC midnight while counters update on packet day.
+    let legacySeconds = Math.max(
+      0,
+      daily.reduce((sum, day) => sum + day.seconds, 0) -
+        recordedDaily.reduce((sum, day) => sum + day.seconds, 0),
+    );
+    const totals = new Map(
+      daily.map((day) => {
+        const recorded = recordedByDay.get(day.date);
+        const seconds = Math.min(
+          legacySeconds,
+          Math.max(0, day.seconds - (recorded?.seconds ?? 0)),
+        );
+        legacySeconds -= seconds;
+        return [
+          day.date,
+          {
+            date: day.date,
+            seconds,
+            views: Math.max(0, day.views - (recorded?.views ?? 0)),
+          },
+        ];
+      }),
+    );
+    for (const video of dailyVideos) {
+      const day = totals.get(video.date) ?? {
+        date: video.date,
+        seconds: 0,
+        views: 0,
+      };
+      day.seconds += video.seconds;
+      day.views += video.views;
+      totals.set(video.date, day);
+    }
     const videosByDay = new Map<
       string,
       TelemetryReport['daily'][number]['videos']
@@ -217,10 +270,13 @@ export class TelemetryService {
       videosByDay.set(video.date, day);
     }
     return {
-      daily: daily.map((day) => {
-        const videos = videosByDay.get(day.date);
-        return videos?.length ? { ...day, videos } : day;
-      }),
+      daily: [...totals.values()]
+        .filter((day) => day.seconds || day.views)
+        .sort((a, b) => a.date.localeCompare(b.date))
+        .map((day) => {
+          const videos = videosByDay.get(day.date);
+          return videos?.length ? { ...day, videos } : day;
+        }),
       videos: videos.map(({ thumbnailRef, sourceType, ...video }) => ({
         ...video,
         thumbnailUrl:

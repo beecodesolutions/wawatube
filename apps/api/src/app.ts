@@ -213,7 +213,19 @@ export function createApp(options: AppOptions): FastifyInstance {
       requireAdmin(request, reply, db),
     );
     admin.get('/api/admin/media', () => library.library());
-    admin.get('/api/admin/telemetry', () => telemetry.report());
+    admin.get<{ Querystring: { timeZone?: string } }>(
+      '/api/admin/telemetry',
+      {
+        schema: {
+          querystring: {
+            type: 'object',
+            properties: { timeZone: { type: 'string', maxLength: 100 } },
+            additionalProperties: false,
+          },
+        },
+      },
+      (request) => telemetry.report(request.query.timeZone),
+    );
     admin.get('/api/admin/categories', () => library.categories());
     admin.post<{ Body: CategoryInput }>(
       '/api/admin/categories',
