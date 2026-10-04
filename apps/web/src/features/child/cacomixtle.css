@@ -1,0 +1,349 @@
+.cacomixtle-layer {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 1400;
+  contain: layout paint;
+  --mascot-height: 100px;
+}
+.cacomixtle-layer * {
+  pointer-events: none;
+}
+.cacomixtle-motion {
+  position: absolute;
+  bottom: max(12px, env(safe-area-inset-bottom));
+  width: var(--mascot-height);
+  height: var(--mascot-height);
+}
+.cacomixtle-sprite {
+  width: 100%;
+  height: 100%;
+  background-image: url('/cacomixtle-sprites.png');
+  background-size: 400% 300%;
+  background-position: 0 100%;
+}
+.cacomixtle-runningRight,
+.cacomixtle-runningLeft {
+  left: 0;
+  animation: cacomixtle-cross 4s linear both;
+}
+.cacomixtle-runningLeft {
+  animation-direction: reverse;
+}
+.cacomixtle-runningRight .cacomixtle-sprite,
+.cacomixtle-runningLeft .cacomixtle-sprite {
+  animation: cacomixtle-run 480ms steps(1) infinite;
+}
+.cacomixtle-runningLeft .cacomixtle-sprite {
+  transform: scaleX(-1);
+}
+.cacomixtle-peeking {
+  right: 0;
+  animation: cacomixtle-peek 1.8s ease-in-out both;
+}
+.cacomixtle-idle,
+.cacomixtle-waving {
+  right: max(20px, env(safe-area-inset-right));
+  animation: cacomixtle-appear 2.5s ease-in-out both;
+}
+.cacomixtle-waving {
+  animation-duration: 3s;
+}
+.cacomixtle-waving .cacomixtle-sprite {
+  animation: cacomixtle-wave 1.2s steps(1) 1 forwards;
+}
+@keyframes cacomixtle-cross {
+  from {
+    transform: translateX(calc(-1 * var(--mascot-height)));
+  }
+  to {
+    transform: translateX(100vw);
+  }
+}
+@keyframes cacomixtle-run {
+  0% {
+    background-position: 0 0;
+  }
+  25% {
+    background-position: 33.333333% 0;
+  }
+  50% {
+    background-position: 66.666667% 0;
+  }
+  75% {
+    background-position: 100% 0;
+  }
+}
+@keyframes cacomixtle-wave {
+  0% {
+    background-position: 0 50%;
+  }
+  25% {
+    background-position: 33.333333% 50%;
+  }
+  50% {
+    background-position: 66.666667% 50%;
+  }
+  75% {
+    background-position: 100% 50%;
+  }
+}
+@keyframes cacomixtle-peek {
+  0%,
+  100% {
+    transform: translateX(100%);
+  }
+  25%,
+  75% {
+    transform: translateX(25%);
+  }
+}
+@keyframes cacomixtle-appear {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  20%,
+  80% {
+    opacity: 1;
+  }
+}
+@media (min-width: 600px) {
+  .cacomixtle-layer {
+    --mascot-height: 120px;
+  }
+}
+@media (min-width: 1200px) {
+  .cacomixtle-layer {
+    --mascot-height: 140px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cacomixtle-layer {
+    display: none;
+  }
+}
+
+@keyframes cacomixtle-arrive {
+  from {
+    transform: translateX(calc(-1 * var(--mascot-height)));
+  }
+  to {
+    transform: translateX(calc(50vw - var(--mascot-height) / 2));
+  }
+}
+@keyframes cacomixtle-leave {
+  from {
+    transform: translateX(calc(50vw - var(--mascot-height) / 2));
+  }
+  to {
+    transform: translateX(100vw);
+  }
+}
+
+.cacomixtle-layer[data-preview='true'] .cacomixtle-idle,
+.cacomixtle-layer[data-preview='true'] .cacomixtle-waving {
+  animation: none;
+}
+.cacomixtle-layer[data-home-run='1'] .cacomixtle-runningRight {
+  animation: cacomixtle-arrive 2s linear both;
+}
+.cacomixtle-layer[data-home-run='1'] .cacomixtle-motion,
+.cacomixtle-layer[data-home-run='2'] .cacomixtle-motion,
+.cacomixtle-layer[data-home='true'] .cacomixtle-motion {
+  top: max(12px, env(safe-area-inset-top));
+  bottom: auto;
+}
+.cacomixtle-layer[data-home-run='1'] .cacomixtle-idle {
+  right: calc(50% - var(--mascot-height) / 2);
+  animation: none;
+}
+.cacomixtle-layer[data-home-run='2'] .cacomixtle-runningRight {
+  animation: cacomixtle-leave 2s linear both;
+}
+.cacomixtle-idle .cacomixtle-sprite {
+  background-image: url('/cacomixtle-blink.png');
+  animation: cacomixtle-blink 2.5s steps(1) 1 forwards;
+}
+@keyframes cacomixtle-blink {
+  0%,
+  60% {
+    background-position: 0 100%;
+  }
+  64% {
+    background-position: 33.333333% 100%;
+  }
+  68% {
+    background-position: 66.666667% 100%;
+  }
+  72%,
+  100% {
+    background-position: 100% 100%;
+  }
+}
+.cacomixtle-farewell-scene {
+  position: absolute;
+  left: 50%;
+  bottom: max(16px, calc(50dvh - var(--farewell-scene-height) - 56px));
+  width: clamp(250px, 40vw, 420px);
+  height: clamp(167px, 26.667vw, 280px);
+  transform: translateX(-50%);
+  overflow: hidden;
+  isolation: isolate;
+  --farewell-scene-height: clamp(167px, 26.667vw, 280px);
+  --farewell-character-size: clamp(100px, 10vw, 140px);
+  --farewell-stop-x: calc(38% - var(--farewell-character-size) / 2);
+  --farewell-turn-x: calc(45% - var(--farewell-character-size) / 2);
+  --farewell-depth-x: calc(52% - var(--farewell-character-size) / 2);
+}
+.cacomixtle-cave-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.cacomixtle-cave-back {
+  z-index: 0;
+}
+.cacomixtle-farewell-character {
+  position: absolute;
+  z-index: 1;
+  left: 0;
+  bottom: 22%;
+  width: var(--farewell-character-size);
+  height: var(--farewell-character-size);
+}
+.cacomixtle-layer[data-farewell-active='true']
+  .cacomixtle-farewell-character.cacomixtle-runningRight {
+  z-index: 3;
+  animation: cacomixtle-farewell-arrive 1.5s linear both;
+}
+.cacomixtle-farewell-character.cacomixtle-waving {
+  z-index: 3;
+  right: auto;
+  left: var(--farewell-stop-x);
+  animation: none;
+}
+.cacomixtle-farewell-character.cacomixtle-waving .cacomixtle-sprite {
+  animation: cacomixtle-wave 1.2s steps(1) 1 forwards;
+}
+.cacomixtle-farewell-character.cacomixtle-enteringCave {
+  animation: cacomixtle-enter-cave 2.8s linear both;
+}
+.cacomixtle-farewell-character.cacomixtle-enteringCave .cacomixtle-sprite {
+  animation:
+    cacomixtle-run 480ms steps(1) infinite,
+    cacomixtle-hide-enter-run 2.8s linear both;
+}
+.cacomixtle-enter-sprite {
+  position: absolute;
+  inset: 0;
+  visibility: hidden;
+  background-image: url('/cacomixtle-enter.png');
+  background-size: 400% 100%;
+  background-position: 0 0;
+  background-repeat: no-repeat;
+}
+.cacomixtle-farewell-character.cacomixtle-enteringCave
+  .cacomixtle-enter-sprite {
+  animation: cacomixtle-enter-atlas 2.8s linear both;
+}
+.cacomixtle-cave-foreground {
+  z-index: 2;
+}
+.cacomixtle-cave-foreground-rocks {
+  clip-path: polygon(
+    0 0,
+    100% 0,
+    100% 82%,
+    78% 82%,
+    74% 74%,
+    72% 58%,
+    69% 48%,
+    64% 41%,
+    56% 38%,
+    48% 38%,
+    40% 42%,
+    35% 48%,
+    32% 62%,
+    28% 76%,
+    22% 82%,
+    0 82%
+  );
+}
+.cacomixtle-cave-foreground-lip {
+  clip-path: polygon(0 78%, 100% 78%, 100% 100%, 0 100%);
+}
+@keyframes cacomixtle-farewell-arrive {
+  from {
+    left: calc(-1 * var(--farewell-character-size));
+  }
+  to {
+    left: var(--farewell-stop-x);
+  }
+}
+@keyframes cacomixtle-enter-cave {
+  from {
+    left: var(--farewell-stop-x);
+    bottom: 22%;
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  25% {
+    left: var(--farewell-turn-x);
+    bottom: 22%;
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  55% {
+    left: var(--farewell-depth-x);
+    bottom: 25%;
+    transform: scale(0.78);
+    filter: brightness(0.45);
+  }
+  to {
+    left: var(--farewell-depth-x);
+    bottom: 31%;
+    transform: scale(0.62);
+    filter: brightness(0);
+  }
+}
+@keyframes cacomixtle-hide-enter-run {
+  0%,
+  24.99% {
+    visibility: visible;
+  }
+  25%,
+  100% {
+    visibility: hidden;
+  }
+}
+@keyframes cacomixtle-enter-atlas {
+  0%,
+  24.99% {
+    visibility: hidden;
+    background-position: 0 0;
+  }
+  25%,
+  39.99% {
+    visibility: visible;
+    background-position: 0 0;
+  }
+  40%,
+  59.99% {
+    visibility: visible;
+    background-position: 33.333333% 0;
+  }
+  60%,
+  79.99% {
+    visibility: visible;
+    background-position: 66.666667% 0;
+  }
+  80%,
+  100% {
+    visibility: visible;
+    background-position: 100% 0;
+  }
+}

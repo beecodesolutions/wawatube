@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react';
+import LockRoundedIcon from '@mui/icons-material/LockRounded';
 import ReplayRoundedIcon from '@mui/icons-material/ReplayRounded';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -33,7 +34,7 @@ export function ChildFrame({ children }: { children: ReactNode }) {
   );
 }
 
-export function ChildBrand() {
+export function ChildBrand({ compact = false }: { compact?: boolean } = {}) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const homeClick = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -55,17 +56,36 @@ export function ChildBrand() {
         if (homeClick.current) clearTimeout(homeClick.current);
         navigate('/parent');
       }}
-      aria-label={`${t('app.name')}. ${t('nav.home')}. ${t('nav.parentDoubleClick')}`}
+      aria-label={
+        compact
+          ? t('nav.parentDoubleClick')
+          : `${t('app.name')}. ${t('nav.home')}. ${t('nav.parentDoubleClick')}`
+      }
       color="inherit"
-      sx={{ minWidth: 104, minHeight: 80, p: 0, borderRadius: 3 }}
+      sx={
+        compact
+          ? {
+              minWidth: 48,
+              minHeight: 48,
+              p: 0,
+              borderRadius: '50%',
+              color: 'text.secondary',
+              backgroundColor: 'transparent',
+            }
+          : { minWidth: 104, minHeight: 80, p: 0, borderRadius: 3 }
+      }
     >
-      <Box
-        component="img"
-        src="/logo-child.webp"
-        alt=""
-        aria-hidden
-        sx={{ width: 104, height: 74, objectFit: 'contain' }}
-      />
+      {compact ? (
+        <LockRoundedIcon aria-hidden />
+      ) : (
+        <Box
+          component="img"
+          src="/logo-child.webp"
+          alt=""
+          aria-hidden
+          sx={{ width: 104, height: 74, objectFit: 'contain' }}
+        />
+      )}
     </Button>
   );
 }

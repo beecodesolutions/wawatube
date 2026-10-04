@@ -40,6 +40,8 @@ import {
   LoadingState,
 } from '../../components/Shared';
 import { SmartDisplay } from '@mui/icons-material';
+import { sendCacomixtleEvent } from './cacomixtle-events';
+import { cacomixtleEnabled } from './cacomixtle-config';
 import {
   clearTelemetrySession,
   createTelemetryId,
@@ -147,6 +149,16 @@ export function ChildHome() {
 
   return (
     <ChildFrame>
+      <Box
+        sx={{
+          position: 'fixed',
+          bottom: 'max(12px, env(safe-area-inset-bottom))',
+          left: 12,
+          zIndex: 2,
+        }}
+      >
+        <ChildBrand compact />
+      </Box>
       <Container
         maxWidth="xl"
         sx={{
@@ -157,25 +169,6 @@ export function ChildHome() {
           py: { xs: 3, md: 5 },
         }}
       >
-        <Stack
-          direction="row"
-          spacing={2}
-          alignItems="center"
-          sx={{
-            width: '100%',
-            maxWidth: 1200,
-            mx: 'auto',
-            mb: { xs: 4, md: 6 },
-          }}
-        >
-          <ChildBrand />
-          <Typography
-            variant="h1"
-            sx={{ fontSize: { xs: '2.5rem', md: '4.4rem' }, lineHeight: 1 }}
-          >
-            {t('app.greeting')}
-          </Typography>
-        </Stack>
         {error ? (
           <ErrorState message={error} retry={load} childFriendly />
         ) : categories === null ? (
@@ -592,11 +585,13 @@ export function ChildPlayer() {
   };
 
   const handlePlay = () => {
+    sendCacomixtleEvent('videoStarted');
     beginPlayback();
     setPlaying(true);
   };
 
   const handlePlaying = () => {
+    sendCacomixtleEvent('videoStarted');
     beginPlayback();
     if (!viewedRef.current) {
       viewedRef.current = true;
@@ -766,6 +761,7 @@ export function ChildPlayer() {
                     setPlaying(false);
                   }}
                   onEnded={() => {
+                    sendCacomixtleEvent('videoEnded');
                     endedRef.current = true;
                     flushTelemetry({ ended: true, completed: true });
                     setEnding('choice');
@@ -974,6 +970,7 @@ export function ChildPlayer() {
                         onClick={() => {
                           clearTelemetrySession();
                           setEnding('goodbye');
+                          sendCacomixtleEvent('sessionEnded');
                         }}
                         sx={{
                           flex: 1,
@@ -1001,7 +998,7 @@ export function ChildPlayer() {
                         </Stack>
                       </Button>
                     </Stack>
-                  ) : (
+                  ) : cacomixtleEnabled ? null : (
                     <Box
                       role="img"
                       aria-label={t('child.goodbye')}

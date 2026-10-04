@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { Box, CssBaseline, ThemeProvider } from '@mui/material';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import {
@@ -9,6 +9,11 @@ import {
 import { ParentApp } from './features/parent/ParentRoutes';
 import { childTheme, parentTheme } from './theme';
 import { api } from './api';
+import { CacomixtleLayer } from './features/child/CacomixtleLayer';
+
+const CacomixtlePreview = import.meta.env.DEV
+  ? lazy(() => import('./features/child/CacomixtlePreview'))
+  : null;
 
 export function App() {
   const { pathname } = useLocation();
@@ -48,6 +53,16 @@ export function App() {
         }}
       >
         <Routes>
+          {CacomixtlePreview ? (
+            <Route
+              path="/dev/cacomixtle"
+              element={
+                <Suspense fallback={null}>
+                  <CacomixtlePreview />
+                </Suspense>
+              }
+            />
+          ) : null}
           <Route path="/" element={<ChildHome />} />
           <Route
             path="/category/:categoryId"
@@ -58,6 +73,9 @@ export function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Box>
+      {!parent && !(import.meta.env.DEV && pathname === '/dev/cacomixtle') ? (
+        <CacomixtleLayer />
+      ) : null}
     </ThemeProvider>
   );
 }
