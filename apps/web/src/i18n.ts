@@ -181,7 +181,7 @@ const resources = {
         telemetrySessionEnd: 'Fin',
         telemetrySessionLastActivity: 'Última actividad',
         telemetrySessionDuration: 'Duración de la sesión',
-        telemetrySessionCategories: 'Videos por categoría (cantidad y %)',
+        telemetrySessionCategories: 'Videos por categoría',
         telemetryNoData: 'Todavía no hay datos.',
         noCandidate: 'Elegí un video para registrarlo.',
         importThumbnail: 'Portada de la vista previa',

@@ -72,6 +72,7 @@ export function AdminTelemetry() {
             assignments[media.id] = {
               id: category.id,
               name: category.name,
+              icon: category.icon,
               color: category.color,
             };
         }
@@ -192,6 +193,7 @@ export function AdminTelemetry() {
               {t('parent.telemetrySessions')}
             </Typography>
             {week.map((day, index) => {
+              if (day.videos.length === 0) return null;
               const categories = sessionCategories(day.videos, videoCategories);
               const label =
                 weekOffset === 0 && index < 2
@@ -234,8 +236,15 @@ export function AdminTelemetry() {
                           </Typography>
                           {categories.map((category) => (
                             <Typography key={category.id}>
-                              {category.name || t('parent.noCategory')}:{' '}
-                              {category.count} ·{' '}
+                              <Box component="span" sx={{ fontWeight: 700 }}>
+                                {category.icon && (
+                                  <Box component="span" aria-hidden="true">
+                                    {category.icon}{' '}
+                                  </Box>
+                                )}
+                                {category.name || t('parent.noCategory')}
+                              </Box>
+                              : {category.count} ·{' '}
                               {Math.round(
                                 (category.count / day.videos.length) * 100,
                               )}

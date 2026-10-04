@@ -1,6 +1,11 @@
 import type { TelemetryReport } from '@wawatube/shared';
 
-export type VideoCategory = { id: string; name: string; color: string | null };
+export type VideoCategory = {
+  id: string;
+  name: string;
+  icon?: string;
+  color: string | null;
+};
 
 export function categorySegments(
   videos: NonNullable<TelemetryReport['daily'][number]['videos']>,
