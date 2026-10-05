@@ -38,9 +38,10 @@ export class TelemetryService {
     }
     const { views, seconds } = telemetry;
     if (!views && !seconds) return;
-    await this.db.transaction((tx) =>
-      this.addAggregate(tx, mediaId, seconds, views),
-    );
+    await this.db.transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(824731)`);
+      await this.addAggregate(tx, mediaId, seconds, views);
+    });
   }
 
   private async recordIdentified(
@@ -49,6 +50,7 @@ export class TelemetryService {
   ): Promise<void> {
     const now = new Date();
     await this.db.transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(824731)`);
       await tx
         .update(watchSessions)
         .set({
@@ -158,7 +160,76 @@ export class TelemetryService {
       });
   }
 
-  async report(timeZone = 'UTC'): Promise<TelemetryReport> {
+  async remove(kind: 'sessions' | 'views', id: string): Promise<void> {
+    await this.db.transaction(async (tx) => {
+      // ponytail: serialize telemetry writes for this small app; use finer locks
+      // if recording traffic grows. Deletion normalizes packet-day counters.
+      await tx.execute(sql`select pg_advisory_xact_lock(824731)`);
+      const rows = await tx
+        .select()
+        .from(videoViews)
+        .where(
+          kind === 'sessions'
+            ? eq(videoViews.sessionId, id)
+            : eq(videoViews.id, id),
+        );
+      if (!rows.length) throw new ApiFailure(404, 'NOT_FOUND');
+      const before = await this.report('UTC', tx);
+      const removedByDay = new Map<
+        string,
+        { seconds: number; views: number }
+      >();
+      const removedByMedia = new Map<string, number>();
+      for (const row of rows) {
+        const day = row.startedAt.toISOString().slice(0, 10);
+        const totals = removedByDay.get(day) ?? { seconds: 0, views: 0 };
+        totals.seconds += row.watchedSeconds;
+        totals.views++;
+        removedByDay.set(day, totals);
+        removedByMedia.set(
+          row.mediaItemId,
+          (removedByMedia.get(row.mediaItemId) ?? 0) + 1,
+        );
+      }
+      if (kind === 'sessions')
+        await tx.delete(watchSessions).where(eq(watchSessions.id, id));
+      else {
+        await tx.delete(videoViews).where(eq(videoViews.id, id));
+        const sessionId = rows[0]!.sessionId;
+        const remaining = await tx
+          .select({ id: videoViews.id })
+          .from(videoViews)
+          .where(eq(videoViews.sessionId, sessionId))
+          .limit(1);
+        if (!remaining.length)
+          await tx.delete(watchSessions).where(eq(watchSessions.id, sessionId));
+      }
+      // report assigns recorded time to UTC view-start day and preserves legacy.
+      // Store that projection, minus removed rows, so no orphaned time reappears.
+      await tx.delete(telemetryDaily);
+      for (const day of before.daily) {
+        const removed = removedByDay.get(day.date);
+        const seconds = day.seconds - (removed?.seconds ?? 0);
+        const views = day.views - (removed?.views ?? 0);
+        if (seconds || views)
+          await tx
+            .insert(telemetryDaily)
+            .values({ day: day.date, seconds, views });
+      }
+      for (const [mediaId, count] of removedByMedia)
+        await tx
+          .update(telemetryVideoViews)
+          .set({
+            views: sql`greatest(0, ${telemetryVideoViews.views} - ${count})`,
+          })
+          .where(eq(telemetryVideoViews.mediaItemId, mediaId));
+    });
+  }
+
+  async report(
+    timeZone = 'UTC',
+    db: Database | Transaction = this.db,
+  ): Promise<TelemetryReport> {
     try {
       timeZone = new Intl.DateTimeFormat('en', { timeZone }).resolvedOptions()
         .timeZone;
@@ -173,7 +244,7 @@ export class TelemetryService {
     )`;
     const [daily, dailyVideos, videos, recordedDaily, sessionViews] =
       await Promise.all([
-        this.db
+        db
           .select({
             date: telemetryDaily.day,
             seconds: telemetryDaily.seconds,
@@ -181,7 +252,7 @@ export class TelemetryService {
           })
           .from(telemetryDaily)
           .orderBy(asc(telemetryDaily.day)),
-        this.db
+        db
           .select({
             date: localVideoDay,
             mediaId: mediaItems.id,
@@ -193,7 +264,7 @@ export class TelemetryService {
           .innerJoin(mediaItems, eq(mediaItems.id, videoViews.mediaItemId))
           .groupBy(sql`1`, mediaItems.id, mediaItems.title)
           .orderBy(sql`1`, asc(mediaItems.title)),
-        this.db
+        db
           .select({
             mediaId: mediaItems.id,
             title: mediaItems.title,
@@ -210,7 +281,7 @@ export class TelemetryService {
             desc(sql`coalesce(${telemetryVideoViews.views}, 0)`),
             asc(mediaItems.title),
           ),
-        this.db
+        db
           .select({
             date: utcVideoDay,
             seconds: sql<number>`sum(${videoViews.watchedSeconds})::int`,
@@ -218,7 +289,7 @@ export class TelemetryService {
           })
           .from(videoViews)
           .groupBy(utcVideoDay),
-        this.db
+        db
           .select({
             sessionId: watchSessions.id,
             startedAt: watchSessions.startedAt,

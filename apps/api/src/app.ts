@@ -226,6 +226,16 @@ export function createApp(options: AppOptions): FastifyInstance {
       },
       (request) => telemetry.report(request.query.timeZone),
     );
+    for (const kind of ['sessions', 'views'] as const) {
+      admin.delete<{ Params: { id: string } }>(
+        `/api/admin/telemetry/${kind}/:id`,
+        { schema: idParams },
+        async (request, reply) => {
+          await telemetry.remove(kind, id(request.params.id));
+          return reply.code(204).send();
+        },
+      );
+    }
     admin.get('/api/admin/categories', () => library.categories());
     admin.post<{ Body: CategoryInput }>(
       '/api/admin/categories',

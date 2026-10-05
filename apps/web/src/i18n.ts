@@ -172,6 +172,12 @@ const resources = {
         telemetryDate: 'Día',
         telemetryVideos: 'Videos más vistos',
         telemetrySessions: 'Actividad por día',
+        telemetryDeleteSession: 'Eliminar sesión',
+        telemetryDeleteView: 'Eliminar reproducción',
+        telemetryDeleteSessionConfirm:
+          'Se eliminarán todas las reproducciones de esta sesión de Uso y se actualizarán las estadísticas. Los videos seguirán en la biblioteca. Detené la reproducción antes de eliminar la sesión.',
+        telemetryDeleteViewConfirm:
+          'Se eliminará esta reproducción de Uso y se actualizarán las estadísticas. El video seguirá en la biblioteca. Detené la reproducción antes de eliminarla.',
         telemetrySessionNumber: 'Sesión {{number}}',
         telemetryWeeks: 'Semanas de actividad',
         telemetrySessionVideos_one: 'video',

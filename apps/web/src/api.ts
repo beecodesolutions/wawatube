@@ -119,6 +119,10 @@ export const api = {
       `/api/admin/telemetry?timeZone=${encodeURIComponent(timeZone)}`,
     );
   },
+  deleteTelemetry: (kind: 'sessions' | 'views', id: string) =>
+    request<void>(`/api/admin/telemetry/${kind}/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    }),
   updateMedia: (id: string, update: MediaUpdate) =>
     request<AdminMedia>(`/api/admin/media/${encodeURIComponent(id)}`, {
       method: 'PATCH',

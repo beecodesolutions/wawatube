@@ -4,6 +4,14 @@ import {
   Accordion,
   AccordionDetails,
   AccordionSummary,
+  Alert,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  IconButton,
   Box,
   Pagination,
   Paper,
@@ -16,6 +24,7 @@ import {
   TableRow,
   Typography,
 } from '@mui/material';
+import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded';
 import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded';
 import { useTheme } from '@mui/material/styles';
@@ -55,6 +64,36 @@ export function AdminTelemetry() {
   const [error, setError] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
   const [weekOffset, setWeekOffset] = useState(0);
+  const [deletion, setDeletion] = useState<{
+    kind: 'sessions' | 'views';
+    id: string;
+    label: string;
+  } | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const confirmDelete = async () => {
+    if (!deletion || deleting) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await api.deleteTelemetry(deletion.kind, deletion.id);
+      setDeletion(null);
+      setWeekOffset(0);
+      setReload((value) => value + 1);
+    } catch (reason) {
+      setDeleteError(errorText(reason, t));
+    } finally {
+      setDeleting(false);
+    }
+  };
+  const requestDelete = (
+    kind: 'sessions' | 'views',
+    id: string,
+    label: string,
+  ) => {
+    setDeleteError(null);
+    setDeletion({ kind, id, label });
+  };
 
   useEffect(() => {
     let active = true;
@@ -282,8 +321,28 @@ export function AdminTelemetry() {
                                   ? ` · ${t('parent.telemetrySessionActive')}`
                                   : ''}
                               </Typography>
+                              <IconButton
+                                color="error"
+                                aria-label={t('parent.telemetryDeleteSession')}
+                                onClick={() =>
+                                  requestDelete(
+                                    'sessions',
+                                    session.id,
+                                    new Date(session.startedAt).toLocaleString(
+                                      i18n.resolvedLanguage,
+                                    ),
+                                  )
+                                }
+                              >
+                                <DeleteOutlineRoundedIcon />
+                              </IconButton>
                             </Stack>
-                            <VideoTable videos={session.videos} />
+                            <VideoTable
+                              videos={session.videos}
+                              onDelete={(id, title) =>
+                                requestDelete('views', id, title)
+                              }
+                            />
                           </Stack>
                         ))}
                       </Stack>
@@ -315,6 +374,48 @@ export function AdminTelemetry() {
           </Stack>
         </>
       )}
+      <Dialog
+        open={deletion !== null}
+        onClose={() => {
+          if (!deleting) setDeletion(null);
+        }}
+        aria-labelledby="telemetry-delete-title"
+      >
+        <DialogTitle id="telemetry-delete-title">
+          {t(
+            deletion?.kind === 'sessions'
+              ? 'parent.telemetryDeleteSession'
+              : 'parent.telemetryDeleteView',
+          )}
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText>{deletion?.label}</DialogContentText>
+          <DialogContentText sx={{ mt: 1 }}>
+            {t(
+              deletion?.kind === 'sessions'
+                ? 'parent.telemetryDeleteSessionConfirm'
+                : 'parent.telemetryDeleteViewConfirm',
+            )}
+          </DialogContentText>
+          {deleteError && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              {deleteError}
+            </Alert>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button disabled={deleting} onClick={() => setDeletion(null)}>
+            {t('common.cancel')}
+          </Button>
+          <Button
+            color="error"
+            disabled={deleting}
+            onClick={() => void confirmDelete()}
+          >
+            {t('common.delete')}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Stack>
   );
 }
@@ -459,12 +560,14 @@ function DailyChart({
 function VideoTable({
   videos,
   showViews = false,
+  onDelete,
 }: {
   videos: (
     | TelemetryReport['videos'][number]
     | TelemetryReport['sessions'][number]['videos'][number]
   )[];
   showViews?: boolean;
+  onDelete?: (id: string, title: string) => void;
 }) {
   const { t } = useTranslation();
   return (
@@ -478,6 +581,22 @@ function VideoTable({
         <TableHead>
           <TableRow>
             <TableCell>{t('parent.mediaTitle')}</TableCell>
+            {onDelete && (
+              <TableCell sx={{ width: 56 }}>
+                <Box
+                  component="span"
+                  sx={{
+                    position: 'absolute',
+                    width: 1,
+                    height: 1,
+                    overflow: 'hidden',
+                    clipPath: 'inset(50%)',
+                  }}
+                >
+                  {t('parent.telemetryDeleteView')}
+                </Box>
+              </TableCell>
+            )}
             {showViews && (
               <TableCell align="right" sx={{ width: { xs: 64, sm: 88 } }}>
                 <VisibilityRoundedIcon
@@ -532,6 +651,17 @@ function VideoTable({
                   </Typography>
                 </Stack>
               </TableCell>
+              {onDelete && 'id' in video && (
+                <TableCell align="right">
+                  <IconButton
+                    color="error"
+                    aria-label={`${t('parent.telemetryDeleteView')}: ${video.title}`}
+                    onClick={() => onDelete(video.id, video.title)}
+                  >
+                    <DeleteOutlineRoundedIcon />
+                  </IconButton>
+                </TableCell>
+              )}
               {showViews && (
                 <TableCell align="right">
                   <Typography component="span" variant="h5">

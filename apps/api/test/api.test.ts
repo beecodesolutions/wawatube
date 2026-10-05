@@ -818,6 +818,176 @@ test('API isolates hidden media, validates bodies, serves local ranges and resum
       ).length,
       1,
     );
+
+    // Deletion preserves legacy activity and unrelated sessions, including a
+    // view whose packets span UTC midnight. Rows are physically removed.
+    await db.delete(schema.watchSessions);
+    await db.delete(schema.telemetryDaily);
+    await db.delete(schema.telemetryVideoViews);
+    const deleteSessionId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+    const deleteViewId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+    const retainedViewId = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+    const otherSessionId = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+    const sendView = (
+      sessionId: string,
+      viewId: string,
+      watchedSeconds: number,
+    ) =>
+      app!.inject({
+        method: 'POST',
+        url: `/api/kids/media/${hiddenId}/telemetry`,
+        payload: { views: 1, seconds: 0, sessionId, viewId, watchedSeconds },
+      });
+    await app.inject({
+      method: 'POST',
+      url: `/api/kids/media/${hiddenId}/telemetry`,
+      payload: { views: 1, seconds: 5 },
+    });
+    await sendView(deleteSessionId, deleteViewId, 20);
+    await sendView(deleteSessionId, retainedViewId, 30);
+    await sendView(otherSessionId, 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', 7);
+    const today = new Date().toISOString().slice(0, 10);
+    const yesterday = new Date(Date.now() - 86400000)
+      .toISOString()
+      .slice(0, 10);
+    await db
+      .update(schema.telemetryDaily)
+      .set({ seconds: 52 })
+      .where(eq(schema.telemetryDaily.day, today));
+    await db
+      .insert(schema.telemetryDaily)
+      .values({ day: yesterday, seconds: 10, views: 0 });
+    const deleteViewUrl = `/api/admin/telemetry/views/${deleteViewId}`;
+    assert.equal(
+      (await app.inject({ method: 'DELETE', url: deleteViewUrl })).statusCode,
+      401,
+    );
+    assert.equal(
+      (
+        await app.inject({
+          method: 'DELETE',
+          url: '/api/admin/telemetry/views/invalid',
+          headers: admin,
+        })
+      ).statusCode,
+      400,
+    );
+    assert.equal(
+      (
+        await app.inject({
+          method: 'DELETE',
+          url: deleteViewUrl,
+          headers: { ...admin, origin: 'https://evil.example' },
+        })
+      ).statusCode,
+      403,
+    );
+    const usage = async () =>
+      (
+        await app!.inject({ url: '/api/admin/telemetry', headers: admin })
+      ).json();
+    const secondsTotal = (report: { daily: { seconds: number }[] }) =>
+      report.daily.reduce((sum, day) => sum + day.seconds, 0);
+    assert.equal(secondsTotal(await usage()), 62);
+    assert.equal(
+      (
+        await app.inject({
+          method: 'DELETE',
+          url: deleteViewUrl,
+          headers: admin,
+        })
+      ).statusCode,
+      204,
+    );
+    let afterTelemetryDelete = await usage();
+    assert.equal(secondsTotal(afterTelemetryDelete), 42);
+    assert.equal(
+      afterTelemetryDelete.videos.find(
+        (video: { mediaId: string }) => video.mediaId === hiddenId,
+      ).views,
+      3,
+    );
+    assert.equal(
+      afterTelemetryDelete.sessions.find(
+        (session: { id: string }) => session.id === deleteSessionId,
+      ).videos.length,
+      1,
+    );
+    const deleteSessionUrl = `/api/admin/telemetry/sessions/${deleteSessionId}`;
+    assert.equal(
+      (
+        await app.inject({
+          method: 'DELETE',
+          url: deleteSessionUrl,
+          headers: admin,
+        })
+      ).statusCode,
+      204,
+    );
+    assert.equal(
+      (
+        await db
+          .select()
+          .from(schema.videoViews)
+          .where(eq(schema.videoViews.sessionId, deleteSessionId))
+      ).length,
+      0,
+    );
+    assert.equal(
+      (
+        await db
+          .select()
+          .from(schema.watchSessions)
+          .where(eq(schema.watchSessions.id, deleteSessionId))
+      ).length,
+      0,
+    );
+    afterTelemetryDelete = await usage();
+    assert.equal(secondsTotal(afterTelemetryDelete), 12);
+    assert.equal(afterTelemetryDelete.sessions.length, 1);
+    assert.equal(afterTelemetryDelete.sessions[0].id, otherSessionId);
+    assert.equal(
+      afterTelemetryDelete.videos.find(
+        (video: { mediaId: string }) => video.mediaId === hiddenId,
+      ).views,
+      2,
+    );
+    assert.equal(
+      (
+        await app.inject({
+          method: 'DELETE',
+          url: '/api/admin/telemetry/views/eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+          headers: admin,
+        })
+      ).statusCode,
+      204,
+    );
+    const lastViewDeleted = await usage();
+    assert.equal(lastViewDeleted.sessions.length, 0);
+    assert.equal(secondsTotal(lastViewDeleted), 5);
+    assert.equal(
+      (
+        await db
+          .select()
+          .from(schema.watchSessions)
+          .where(eq(schema.watchSessions.id, otherSessionId))
+      ).length,
+      0,
+    );
+    assert.equal(
+      (await app.inject({ url: `/api/kids/media/${hiddenId}` })).statusCode,
+      200,
+    );
+    assert.equal(
+      (
+        await app.inject({
+          method: 'DELETE',
+          url: '/api/admin/telemetry/views/ffffffff-ffff-4fff-8fff-ffffffffffff',
+          headers: admin,
+        })
+      ).statusCode,
+      404,
+    );
   } finally {
     await app?.close();
     await sql.unsafe(`DROP SCHEMA IF EXISTS "${schemaName}" CASCADE`);
