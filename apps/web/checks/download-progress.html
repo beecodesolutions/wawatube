@@ -13,8 +13,15 @@
     <script type="module">
       import React from 'react';
       import { createRoot } from 'react-dom/client';
+      import {
+        MemoryRouter,
+        Route,
+        Routes,
+        useLocation,
+        useNavigate,
+      } from 'react-router-dom';
       import { ThemeProvider } from '@mui/material/styles';
-      import { AdminLibrary } from '../src/features/parent/ParentLibrary.tsx';
+      import { ParentApp } from '../src/features/parent/ParentRoutes.tsx';
       import { api } from '../src/api.ts';
       import { parentTheme } from '../src/theme.ts';
       import '../src/i18n.ts';
@@ -61,11 +68,30 @@
       };
       api.adminMedia = async () => data;
       api.categories = async () => [];
+      api.session = async () => ({ authenticated: true, pinRequired: true });
+      let pathname;
+      let navigate;
+      function LibraryCheck() {
+        pathname = useLocation().pathname;
+        navigate = useNavigate();
+        return React.createElement(ParentApp);
+      }
       createRoot(document.getElementById('root')).render(
         React.createElement(
           ThemeProvider,
           { theme: parentTheme },
-          React.createElement(AdminLibrary),
+          React.createElement(
+            MemoryRouter,
+            { initialEntries: ['/parent/library/downloads'] },
+            React.createElement(
+              Routes,
+              null,
+              React.createElement(Route, {
+                path: '/parent/*',
+                element: React.createElement(LibraryCheck),
+              }),
+            ),
+          ),
         ),
       );
       const waitFor = async (read) => {
@@ -81,11 +107,38 @@
       const active = () => document.querySelector('section');
       try {
         await waitFor(() => document.querySelector('[role="tab"]'));
+        assert(
+          document.querySelector('[role="tab"][aria-selected="true"]')
+            .textContent === 'Descargas',
+          'Direct downloads route selects its tab',
+        );
+        const videosTab = [...document.querySelectorAll('[role="tab"]')].find(
+          (tab) => tab.textContent === 'Videos',
+        );
+        assert(
+          videosTab.getAttribute('href') === '/parent/library/videos',
+          'Videos link',
+        );
+        videosTab.click();
+        await waitFor(() => pathname === '/parent/library/videos');
         [...document.querySelectorAll('[role="tab"]')]
           .find((tab) => tab.textContent === 'Descargas')
           .click();
-        await waitFor(() =>
-          active()?.textContent.includes('Playlist revisando'),
+        await waitFor(
+          () =>
+            pathname === '/parent/library/downloads' &&
+            active()?.textContent.includes('Playlist revisando'),
+        );
+        navigate(-1);
+        await waitFor(
+          () =>
+            pathname === '/parent/library/videos' &&
+            document.querySelector('[role="tab"][aria-selected="true"]')
+              .textContent === 'Videos',
+        );
+        navigate(1);
+        await waitFor(
+          () => pathname === '/parent/library/downloads' && active(),
         );
         for (const title of [
           'Video en cola',
@@ -119,8 +172,10 @@
           document.body.textContent.includes('Continuar importación'),
           'Preview action preserved',
         );
+        navigate('/parent/library');
+        await waitFor(() => pathname === '/parent/library/videos');
         document.getElementById('result').textContent =
-          'OK: tareas activas, playlists con total y sin total, acciones de revisión.';
+          'OK: rutas directas, pestañas, atrás/adelante y tareas activas.';
       } catch (error) {
         document.getElementById('result').textContent =
           'ERROR: ' + error.message;

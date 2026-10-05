@@ -91,7 +91,11 @@ export function ParentApp() {
         <ParentFrame onLogout={() => setAuthenticated(false)}>
           <Routes>
             <Route index element={<Navigate to="library" replace />} />
-            <Route path="library" element={<AdminLibrary />} />
+            <Route path="library">
+              <Route index element={<Navigate to="videos" replace />} />
+              <Route path="videos" element={<AdminLibrary />} />
+              <Route path="downloads" element={<AdminLibrary />} />
+            </Route>
             <Route path="categories" element={<AdminCategories />} />
             <Route path="telemetry" element={<AdminTelemetry />} />
             <Route path="*" element={<Navigate to="library" replace />} />

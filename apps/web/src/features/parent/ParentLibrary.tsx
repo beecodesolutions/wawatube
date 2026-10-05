@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link, useMatch, useNavigate } from 'react-router-dom';
 import YouTubeIcon from '@mui/icons-material/YouTube';
 import FolderRoundedIcon from '@mui/icons-material/FolderRounded';
 import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded';
@@ -48,7 +49,8 @@ export function AdminLibrary() {
   const [error, setError] = useState<string | null>(null);
   const [categoryError, setCategoryError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [tab, setTab] = useState<'videos' | 'downloads'>('videos');
+  const navigate = useNavigate();
+  const tab = useMatch('/parent/library/downloads') ? 'downloads' : 'videos';
   const [adding, setAdding] = useState(false);
   const [importKey, setImportKey] = useState(0);
   const [selectedMedia, setSelectedMedia] = useState<AdminMedia | null>(null);
@@ -169,13 +171,19 @@ export function AdminLibrary() {
         justifyContent="space-between"
         gap={2}
       >
-        <Tabs
-          value={tab}
-          onChange={(_, value: 'videos' | 'downloads') => setTab(value)}
-          aria-label={t('parent.librarySections')}
-        >
-          <Tab value="videos" label={t('parent.videosTab')} />
-          <Tab value="downloads" label={t('parent.downloadsTab')} />
+        <Tabs value={tab} aria-label={t('parent.librarySections')}>
+          <Tab
+            component={Link}
+            to="/parent/library/videos"
+            value="videos"
+            label={t('parent.videosTab')}
+          />
+          <Tab
+            component={Link}
+            to="/parent/library/downloads"
+            value="downloads"
+            label={t('parent.downloadsTab')}
+          />
         </Tabs>
         <Button variant="contained" onClick={() => setAdding(true)}>
           {t('parent.addVideos')}
@@ -514,7 +522,7 @@ export function AdminLibrary() {
               initialJob={selectedImport}
               onComplete={() => {
                 refresh();
-                setTab('downloads');
+                navigate('/parent/library/downloads');
                 setAdding(false);
                 setSelectedImport(null);
                 setImportKey((value) => value + 1);
