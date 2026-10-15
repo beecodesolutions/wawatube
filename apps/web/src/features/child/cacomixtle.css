@@ -41,6 +41,246 @@
 .cacomixtle-runningLeft .cacomixtle-sprite {
   transform: scaleX(-1);
 }
+.cacomixtle-walkingLeftToRight,
+.cacomixtle-walkingRightToLeft,
+.cacomixtle-walkingLeftToLeft,
+.cacomixtle-walkingRightToRight {
+  left: 0;
+  animation-duration: 6.5s;
+  animation-timing-function: linear;
+  animation-fill-mode: both;
+}
+.cacomixtle-walkingLeftToRight {
+  animation-name: cacomixtle-walk-left-right;
+}
+.cacomixtle-walkingRightToLeft {
+  animation-name: cacomixtle-walk-right-left;
+}
+.cacomixtle-walkingLeftToLeft {
+  animation-name: cacomixtle-walk-left-left;
+}
+.cacomixtle-walkingRightToRight {
+  animation-name: cacomixtle-walk-right-right;
+}
+.cacomixtle-walkingLeftToRight .cacomixtle-sprite,
+.cacomixtle-walkingRightToLeft .cacomixtle-sprite,
+.cacomixtle-walkingLeftToLeft .cacomixtle-sprite,
+.cacomixtle-walkingRightToRight .cacomixtle-sprite {
+  background-position: 0 0;
+  animation:
+    cacomixtle-run 480ms steps(1) infinite,
+    cacomixtle-walk-sprite-visibility 6.5s steps(1) both;
+}
+.cacomixtle-walkingRightToLeft .cacomixtle-sprite {
+  transform: scaleX(-1);
+}
+.cacomixtle-walkingLeftToLeft .cacomixtle-sprite,
+.cacomixtle-walkingRightToRight .cacomixtle-sprite {
+  animation:
+    cacomixtle-run 480ms steps(1) infinite,
+    cacomixtle-walk-sprite-visibility 6.5s steps(1) both,
+    cacomixtle-walk-turn 6.5s linear both;
+}
+.cacomixtle-walkingRightToRight .cacomixtle-sprite {
+  animation:
+    cacomixtle-run 480ms steps(1) infinite,
+    cacomixtle-walk-sprite-visibility 6.5s steps(1) both,
+    cacomixtle-walk-turn-right 6.5s linear both;
+}
+.cacomixtle-walk-look {
+  position: absolute;
+  inset: 0;
+  background-image: url('/cacomixtle-blink.png');
+  background-size: 400% 300%;
+  background-position: 0 100%;
+  opacity: 0;
+  animation:
+    cacomixtle-walk-look-visibility 6.5s steps(1) both,
+    cacomixtle-blink 1.95s steps(1) 1 2.015s forwards;
+}
+@keyframes cacomixtle-walk-left-right {
+  0% {
+    transform: translateX(calc(-1 * var(--mascot-height)));
+  }
+  31%,
+  61% {
+    transform: translateX(calc(50vw - var(--mascot-height) / 2));
+  }
+  100% {
+    transform: translateX(100vw);
+  }
+}
+@keyframes cacomixtle-walk-right-left {
+  0% {
+    transform: translateX(100vw);
+  }
+  31%,
+  61% {
+    transform: translateX(calc(50vw - var(--mascot-height) / 2));
+  }
+  100% {
+    transform: translateX(calc(-1 * var(--mascot-height)));
+  }
+}
+@keyframes cacomixtle-walk-left-left {
+  0% {
+    transform: translateX(calc(-1 * var(--mascot-height)));
+  }
+  31%,
+  61% {
+    transform: translateX(calc(50vw - var(--mascot-height) / 2));
+  }
+  100% {
+    transform: translateX(calc(-1 * var(--mascot-height)));
+  }
+}
+@keyframes cacomixtle-walk-right-right {
+  0% {
+    transform: translateX(100vw);
+  }
+  31%,
+  61% {
+    transform: translateX(calc(50vw - var(--mascot-height) / 2));
+  }
+  100% {
+    transform: translateX(100vw);
+  }
+}
+@keyframes cacomixtle-walk-sprite-visibility {
+  0%,
+  30.99%,
+  61%,
+  100% {
+    visibility: visible;
+  }
+  31%,
+  60.99% {
+    visibility: hidden;
+  }
+}
+@keyframes cacomixtle-walk-look-visibility {
+  0%,
+  30.99%,
+  61%,
+  100% {
+    opacity: 0;
+  }
+  31%,
+  60.99% {
+    opacity: 1;
+  }
+}
+@keyframes cacomixtle-walk-turn {
+  0%,
+  54.99% {
+    transform: scaleX(1);
+  }
+  55%,
+  100% {
+    transform: scaleX(-1);
+  }
+}
+@keyframes cacomixtle-walk-turn-right {
+  0%,
+  54.99% {
+    transform: scaleX(-1);
+  }
+  55%,
+  100% {
+    transform: scaleX(1);
+  }
+}
+.cacomixtle-rock-scene {
+  position: absolute;
+  left: max(12px, env(safe-area-inset-left));
+  top: max(40px, env(safe-area-inset-top));
+  width: clamp(165px, 31.5vw, 270px);
+  height: clamp(105px, 20.25vw, 173px);
+}
+.cacomixtle-rock-scene[data-rock-side='right'] {
+  left: auto;
+  right: max(12px, env(safe-area-inset-right));
+}
+.cacomixtle-rock-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.cacomixtle-rock-poop {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  bottom: 19%;
+  width: clamp(36px, 7vw, 58px);
+  height: auto;
+  transform: translateX(-50%);
+}
+.cacomixtle-rock-character {
+  position: absolute;
+  z-index: 3;
+  left: calc(50% - var(--mascot-height) / 2);
+  bottom: 28%;
+  width: var(--mascot-height);
+  height: var(--mascot-height);
+}
+.cacomixtle-rock-character .cacomixtle-pooping-sprite {
+  width: 100%;
+  height: 100%;
+  background-image: url('/cacomixtle-pooping.png');
+  background-size: 200% 100%;
+  background-position: 0 0;
+  background-repeat: no-repeat;
+}
+.cacomixtle-rock-character.cacomixtle-rockSurprised .cacomixtle-pooping-sprite {
+  background-position: 100% 0;
+}
+.cacomixtle-rock-character.cacomixtle-rockFleeLeft,
+.cacomixtle-rock-character.cacomixtle-rockFleeRight {
+  bottom: 28%;
+  animation: cacomixtle-rock-flee-left 2s linear both;
+}
+.cacomixtle-rock-character.cacomixtle-rockFleeLeft .cacomixtle-sprite {
+  background-position: 0 0;
+  transform: scaleX(-1);
+  animation: cacomixtle-run 480ms steps(1) infinite;
+}
+.cacomixtle-rock-character.cacomixtle-rockFleeRight {
+  animation-name: cacomixtle-rock-flee-right;
+}
+.cacomixtle-rock-character.cacomixtle-rockFleeRight .cacomixtle-sprite {
+  background-position: 0 0;
+  animation: cacomixtle-run 480ms steps(1) infinite;
+}
+.cacomixtle-rock-scene[data-rock-state='rockSettled'] {
+  animation: cacomixtle-rock-settle 1.4s linear both;
+}
+@keyframes cacomixtle-rock-flee-left {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(calc(-100vw - var(--mascot-height)));
+  }
+}
+@keyframes cacomixtle-rock-flee-right {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(calc(100vw + var(--mascot-height)));
+  }
+}
+@keyframes cacomixtle-rock-settle {
+  0%,
+  71.42% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
 .cacomixtle-peeking {
   right: 0;
   animation: cacomixtle-peek 1.8s ease-in-out both;
@@ -134,42 +374,13 @@
   }
 }
 
-@keyframes cacomixtle-arrive {
-  from {
-    transform: translateX(calc(-1 * var(--mascot-height)));
-  }
-  to {
-    transform: translateX(calc(50vw - var(--mascot-height) / 2));
-  }
-}
-@keyframes cacomixtle-leave {
-  from {
-    transform: translateX(calc(50vw - var(--mascot-height) / 2));
-  }
-  to {
-    transform: translateX(100vw);
-  }
-}
-
 .cacomixtle-layer[data-preview='true'] .cacomixtle-idle,
 .cacomixtle-layer[data-preview='true'] .cacomixtle-waving {
   animation: none;
 }
-.cacomixtle-layer[data-home-run='1'] .cacomixtle-runningRight {
-  animation: cacomixtle-arrive 2s linear both;
-}
-.cacomixtle-layer[data-home-run='1'] .cacomixtle-motion,
-.cacomixtle-layer[data-home-run='2'] .cacomixtle-motion,
 .cacomixtle-layer[data-home='true'] .cacomixtle-motion {
   top: max(12px, env(safe-area-inset-top));
   bottom: auto;
-}
-.cacomixtle-layer[data-home-run='1'] .cacomixtle-idle {
-  right: calc(50% - var(--mascot-height) / 2);
-  animation: none;
-}
-.cacomixtle-layer[data-home-run='2'] .cacomixtle-runningRight {
-  animation: cacomixtle-leave 2s linear both;
 }
 .cacomixtle-idle .cacomixtle-sprite {
   background-image: url('/cacomixtle-blink.png');

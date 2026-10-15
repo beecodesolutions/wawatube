@@ -15,13 +15,26 @@ import {
 import { Link as RouterLink } from 'react-router-dom';
 import { CacomixtleLayer } from './CacomixtleLayer';
 import { sendCacomixtleEvent } from './cacomixtle-events';
-import type { MascotEvent, MascotState } from './cacomixtle-controller';
+import type {
+  MascotEvent,
+  MascotState,
+  RockSceneSide,
+} from './cacomixtle-controller';
 
 const previewStates: readonly { state: MascotState; label: string }[] = [
   { state: 'hidden', label: 'Oculto' },
   { state: 'idle', label: 'Quieto' },
   { state: 'runningRight', label: 'Corre a la derecha' },
   { state: 'runningLeft', label: 'Corre a la izquierda' },
+  { state: 'walkingLeftToRight', label: 'Camina izquierda → derecha' },
+  { state: 'walkingRightToLeft', label: 'Camina derecha → izquierda' },
+  { state: 'walkingLeftToLeft', label: 'Camina izquierda → izquierda' },
+  { state: 'walkingRightToRight', label: 'Camina derecha → derecha' },
+  { state: 'rockPooping', label: 'Roca: hace popó' },
+  { state: 'rockSurprised', label: 'Roca: se sorprende' },
+  { state: 'rockFleeLeft', label: 'Roca: huye izquierda' },
+  { state: 'rockFleeRight', label: 'Roca: huye derecha' },
+  { state: 'rockSettled', label: 'Roca: queda la escena' },
   { state: 'peeking', label: 'Se asoma' },
   { state: 'waving', label: 'Saluda' },
   { state: 'enteringCave', label: 'Entra a la cueva' },
@@ -43,6 +56,7 @@ export default function CacomixtlePreview() {
   const [previewState, setPreviewState] = useState<MascotState | undefined>(
     'hidden',
   );
+  const [previewRockSide, setPreviewRockSide] = useState<RockSceneSide>('left');
   const [replay, setReplay] = useState(0);
   const [clickCount, setClickCount] = useState(0);
 
@@ -56,12 +70,20 @@ export default function CacomixtlePreview() {
     setReplay((current) => current + 1);
   };
 
+  const handleRockPreview = (side: RockSceneSide) => {
+    setPreviewRockSide(side);
+    handlePreviewState('rockPooping');
+  };
+
   return (
     <>
       <CacomixtleLayer
         enabled={enabled}
         motionDisabled={motionDisabled}
         previewState={previewState}
+        previewRockSide={
+          previewState === undefined ? undefined : previewRockSide
+        }
         key={replay}
       />
       <Container maxWidth="md" sx={{ py: { xs: 3, sm: 6 } }}>
@@ -147,6 +169,17 @@ export default function CacomixtlePreview() {
             <Button variant="contained" onClick={handleAutomatic}>
               Modo automático
             </Button>
+            <ButtonGroup
+              aria-label="Lado de la escena de roca"
+              variant="outlined"
+            >
+              <Button onClick={() => handleRockPreview('left')}>
+                Roca: lado izquierdo
+              </Button>
+              <Button onClick={() => handleRockPreview('right')}>
+                Roca: lado derecho
+              </Button>
+            </ButtonGroup>
           </Stack>
 
           <Stack spacing={1.5}>

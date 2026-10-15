@@ -3,10 +3,21 @@ export type MascotState =
   | 'idle'
   | 'runningRight'
   | 'runningLeft'
+  | 'walkingLeftToRight'
+  | 'walkingRightToLeft'
+  | 'walkingLeftToLeft'
+  | 'walkingRightToRight'
+  | 'rockPooping'
+  | 'rockSurprised'
+  | 'rockFleeLeft'
+  | 'rockFleeRight'
+  | 'rockSettled'
   | 'peeking'
   | 'waving'
   | 'enteringCave'
   | 'cave';
+
+export type RockSceneSide = 'left' | 'right';
 
 export type MascotEvent =
   | 'sessionStarted'
@@ -16,6 +27,7 @@ export type MascotEvent =
   | 'sessionEnded';
 
 export interface CacomixtleControllerOptions {
+  home?: boolean;
   random?: () => number;
   setTimeout?: (callback: () => void, delayMs: number) => unknown;
   clearTimeout?: (handle: unknown) => void;
@@ -29,13 +41,24 @@ const BROWSE_DELAY = [45_000, 120_000] as const;
 const SESSION_END_DELAY = [1_000, 2_000] as const;
 const FIRST_RUN_DURATION = 2_000;
 const APPEARANCE_DURATION = 4_000;
+const WALK_DURATION = 6_500;
 const PEEK_DURATION = 1_800;
 const IDLE_DURATION = 2_500;
+const ROCK_POOP_DURATION = 2_000;
+const ROCK_SURPRISE_DURATION = 600;
+const ROCK_FLEE_DURATION = 2_000;
+const ROCK_SETTLED_DURATION = 1_400;
 const GOODBYE_RUN_DURATION = 1_500;
 const GOODBYE_WAVE_DURATION = 1_200;
 const GOODBYE_CAVE_DURATION = 2_800;
 
 const browseStates: readonly MascotState[] = [
+  'walkingLeftToRight',
+  'walkingRightToLeft',
+  'walkingLeftToLeft',
+  'walkingRightToRight',
+];
+const legacyBrowseStates: readonly MascotState[] = [
   'runningRight',
   'runningLeft',
   'peeking',
@@ -44,6 +67,20 @@ const browseStates: readonly MascotState[] = [
 
 const durationFor = (state: MascotState): number => {
   switch (state) {
+    case 'walkingLeftToRight':
+    case 'walkingRightToLeft':
+    case 'walkingLeftToLeft':
+    case 'walkingRightToRight':
+      return WALK_DURATION;
+    case 'rockPooping':
+      return ROCK_POOP_DURATION;
+    case 'rockSurprised':
+      return ROCK_SURPRISE_DURATION;
+    case 'rockFleeLeft':
+    case 'rockFleeRight':
+      return ROCK_FLEE_DURATION;
+    case 'rockSettled':
+      return ROCK_SETTLED_DURATION;
     case 'runningRight':
     case 'runningLeft':
       return APPEARANCE_DURATION;
@@ -59,6 +96,28 @@ const durationFor = (state: MascotState): number => {
   }
 };
 
+const sampleIndex = (random: () => number, length: number): number =>
+  Math.min(
+    length - 1,
+    Math.floor(Math.min(0.999999999, Math.max(0, random())) * length),
+  );
+
+const randomRockFleeState = (random: () => number): MascotState =>
+  random() < 0.5 ? 'rockFleeLeft' : 'rockFleeRight';
+
+const randomAppearance = (random: () => number, home: boolean): MascotState => {
+  if (!home)
+    return (
+      legacyBrowseStates[sampleIndex(random, legacyBrowseStates.length)] ??
+      'idle'
+    );
+  if (random() < 0.25) return 'rockPooping';
+  return (
+    browseStates[sampleIndex(random, browseStates.length)] ??
+    'walkingLeftToRight'
+  );
+};
+
 const sampleDelay = (
   random: () => number,
   [minimum, maximum]: readonly [number, number],
@@ -68,9 +127,10 @@ const sampleDelay = (
 };
 
 export function createCacomixtleController(
-  onState: (state: MascotState) => void,
+  onState: (state: MascotState, rockSide?: RockSceneSide) => void,
   options: CacomixtleControllerOptions = {},
 ): { send: (event: MascotEvent) => void; dispose: () => void } {
+  const home = options.home ?? true;
   const random = options.random ?? Math.random;
   const schedule =
     options.setTimeout ??
@@ -86,6 +146,7 @@ export function createCacomixtleController(
   let mode: Mode = 'inactive';
   let pendingTimer: unknown = null;
   let disposed = false;
+  let rockSceneSide: RockSceneSide = 'left';
 
   const clearPendingTimer = (): void => {
     if (pendingTimer === null) return;
@@ -95,7 +156,10 @@ export function createCacomixtleController(
 
   const emit = (state: MascotState): void => {
     if (disposed) return;
-    onState(state);
+    if (state === 'rockPooping') {
+      rockSceneSide = random() < 0.5 ? 'left' : 'right';
+    }
+    onState(state, state.startsWith('rock') ? rockSceneSide : undefined);
   };
 
   const scheduleTimer = (delayMs: number, callback: () => void): void => {
@@ -106,29 +170,44 @@ export function createCacomixtleController(
     }, delayMs);
   };
 
-  const randomBrowseState = (): MascotState => {
-    const index = Math.min(
-      browseStates.length - 1,
-      Math.floor(
-        Math.min(0.999999999, Math.max(0, random())) * browseStates.length,
-      ),
-    );
-    return browseStates[index] ?? 'idle';
+  const finishAppearance = (): void => {
+    if (mode !== 'browsing') return;
+    emit('hidden');
+    scheduleBrowse();
+  };
+
+  const playRockAppearance = (): void => {
+    emit('rockPooping');
+    scheduleTimer(ROCK_POOP_DURATION, () => {
+      if (mode !== 'browsing') return;
+      emit('rockSurprised');
+      scheduleTimer(ROCK_SURPRISE_DURATION, () => {
+        if (mode !== 'browsing') return;
+        emit(randomRockFleeState(random));
+        scheduleTimer(ROCK_FLEE_DURATION, () => {
+          if (mode !== 'browsing') return;
+          emit('rockSettled');
+          scheduleTimer(ROCK_SETTLED_DURATION, finishAppearance);
+        });
+      });
+    });
+  };
+
+  const playAppearance = (state: MascotState): void => {
+    if (state === 'rockPooping') {
+      playRockAppearance();
+      return;
+    }
+    emit(state);
+    scheduleTimer(durationFor(state), finishAppearance);
   };
 
   const scheduleBrowse = (
-    state?: MascotState,
     delayRange: readonly [number, number] = BROWSE_DELAY,
   ): void => {
     scheduleTimer(sampleDelay(random, delayRange), () => {
       if (mode !== 'browsing') return;
-      const nextState = state ?? randomBrowseState();
-      emit(nextState);
-      scheduleTimer(durationFor(nextState), () => {
-        if (mode !== 'browsing') return;
-        emit('hidden');
-        scheduleBrowse();
-      });
+      playAppearance(randomAppearance(random, home));
     });
   };
 
@@ -138,20 +217,20 @@ export function createCacomixtleController(
     emit('hidden');
     scheduleTimer(sampleDelay(random, INITIAL_DELAY), () => {
       if (mode !== 'browsing') return;
-      emit('runningRight');
-      scheduleTimer(FIRST_RUN_DURATION, () => {
-        if (mode !== 'browsing') return;
-        emit('idle');
-        scheduleTimer(IDLE_DURATION, () => {
+      if (!home) {
+        emit('runningRight');
+        scheduleTimer(FIRST_RUN_DURATION, () => {
           if (mode !== 'browsing') return;
-          emit('runningRight');
-          scheduleTimer(FIRST_RUN_DURATION, () => {
+          emit('idle');
+          scheduleTimer(IDLE_DURATION, () => {
             if (mode !== 'browsing') return;
-            emit('hidden');
-            scheduleBrowse();
+            emit('runningRight');
+            scheduleTimer(FIRST_RUN_DURATION, finishAppearance);
           });
         });
-      });
+        return;
+      }
+      playAppearance(randomAppearance(random, true));
     });
   };
 
