@@ -52,6 +52,8 @@ const resources = {
         watchAnotherShort: 'Ver otro video',
         finish: 'Terminar',
         goodbye: 'Hasta la próxima',
+        sessionAcorns_one: '{{count}} bellota por los videos que viste',
+        sessionAcorns_other: '{{count}} bellotas por los videos que viste',
         unavailable: 'Este video no está disponible.',
         playerError:
           'No pudimos reproducir este video. Probá con otro formato compatible.',

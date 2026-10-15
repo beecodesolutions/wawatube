@@ -17,6 +17,8 @@
     >
     <button id="check" disabled>Comprobar final de video</button>
     <button id="preview">Ver overlay</button>
+    <label><input id="reduced" type="checkbox" /> Movimiento reducido</label>
+    <label><input id="fallback" type="checkbox" /> Suprimir animationend</label>
     <output id="result" aria-live="polite"></output>
     <div id="root"></div>
     <script type="module">
@@ -36,6 +38,62 @@
       });
       api.childCategories = async () => [];
       const root = createRoot(document.getElementById('root'));
+      const entryStarts = new WeakMap();
+      const sampledForegrounds = new WeakSet();
+      const foregroundMounts = [];
+      new MutationObserver(() => {
+        const current = document.querySelector('.child-ending-scene');
+        if (!current) return;
+        if (
+          current.dataset.endingPhase === 'entering' &&
+          !entryStarts.has(current)
+        )
+          entryStarts.set(current, performance.now());
+        const foreground = current.querySelector(
+          '.ending-destination-foreground',
+        );
+        if (foreground && !sampledForegrounds.has(foreground)) {
+          sampledForegrounds.add(foreground);
+          foregroundMounts.push({
+            choice: current.dataset.endingChoice,
+            src: foreground.src,
+            delay: performance.now() - entryStarts.get(current),
+          });
+        }
+      }).observe(document.getElementById('root'), {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['data-ending-phase'],
+      });
+      const originalMatchMedia = window.matchMedia.bind(window);
+      window.matchMedia = (query) => {
+        if (
+          query !== '(prefers-reduced-motion: reduce)' ||
+          !document.getElementById('reduced').checked
+        )
+          return originalMatchMedia(query);
+        return {
+          matches: true,
+          media: query,
+          onchange: null,
+          addListener() {},
+          removeListener() {},
+          addEventListener() {},
+          removeEventListener() {},
+          dispatchEvent() {
+            return true;
+          },
+        };
+      };
+      document.addEventListener(
+        'animationend',
+        (event) => {
+          if (document.getElementById('fallback').checked)
+            event.stopPropagation();
+        },
+        true,
+      );
       let mount = 0;
       const render = () =>
         root.render(
@@ -46,7 +104,7 @@
           ),
         );
       const waitFor = async (read) => {
-        for (let i = 0; i < 100; i++) {
+        for (let i = 0; i < 400; i++) {
           const value = read();
           if (value) return value;
           await new Promise((resolve) => setTimeout(resolve, 30));
@@ -57,8 +115,17 @@
         if (!condition) throw new Error(message);
       };
       const choice = () => document.querySelector('[role="dialog"]');
-      const yes = () => choice()?.querySelector('a');
-      const no = () => choice()?.querySelector('button');
+      const yes = () =>
+        choice()?.querySelector('button[aria-label="Ver otro video"]');
+      const no = () => choice()?.querySelector('button[aria-label="Terminar"]');
+      const scene = () => document.querySelector('.child-ending-scene');
+      const acorns = () =>
+        choice()?.querySelector('[role="img"][aria-label*="bellota"]');
+      sessionStorage.removeItem('wawatube.telemetry.session');
+      document.getElementById('reduced').onchange = () => {
+        sessionStorage.removeItem('wawatube.telemetry.session');
+        render();
+      };
       render();
       await waitFor(() => document.querySelector('video'));
       document.getElementById('preview').onclick = () =>
@@ -71,7 +138,7 @@
         let exitCalls = 0;
         try {
           const video = document.querySelector('video');
-          const player = video.parentElement;
+          const player = video.parentElement.parentElement;
           const fullscreen =
             document.getElementById('fullscreen').checked && !simulate;
           if (simulate) {
@@ -104,7 +171,27 @@
           const fullscreenBefore = document.fullscreenElement;
           const boundsBefore = player.getBoundingClientRect();
           video.dispatchEvent(new Event('ended'));
+          video.dispatchEvent(new Event('ended'));
           await waitFor(() => yes() && no());
+          const reduced = document.getElementById('reduced').checked;
+          if (!reduced) {
+            assert(
+              scene().dataset.endingPhase === 'delivery',
+              'Delivery starts before choices',
+            );
+            assert(
+              yes().disabled &&
+                no().disabled &&
+                getComputedStyle(yes()).visibility === 'hidden' &&
+                getComputedStyle(no()).visibility === 'hidden',
+              'Choices stay hidden and disabled during delivery',
+            );
+            no().click();
+            assert(
+              scene().dataset.endingChoice === '',
+              'Hidden choices cannot interrupt delivery',
+            );
+          }
           await waitFor(() => yes().getBoundingClientRect().height >= 111.5);
           assert(
             document.fullscreenElement === fullscreenBefore,
@@ -123,21 +210,46 @@
           );
           assert(choice().textContent.includes('¿Qué hacemos?'), 'Question');
           assert(
-            yes().getAttribute('aria-label') === 'Sí' &&
-              no().getAttribute('aria-label') === 'No',
+            yes().getAttribute('aria-label') === 'Ver otro video' &&
+              no().getAttribute('aria-label') === 'Terminar',
             'Accessible choices',
           );
           assert(
-            yes().querySelector('svg') && no().querySelector('svg'),
-            'Pictorial choices',
+            [yes(), no()].every(
+              (button) =>
+                getComputedStyle(button).backgroundColor !==
+                  'rgba(0, 0, 0, 0)' &&
+                getComputedStyle(button).borderWidth === '3px' &&
+                button.textContent.trim() !== '',
+            ),
+            'Waiting choices retain their colored buttons and labels',
+          );
+          await waitFor(() =>
+            [yes(), no()].every((button) =>
+              [...button.querySelectorAll('img')].every(
+                (image) => image.complete && image.naturalWidth > 0,
+              ),
+            ),
           );
           assert(
-            getComputedStyle(yes()).backgroundColor === 'rgb(46, 125, 50)',
-            'Green Yes',
+            [yes(), no()].every((button) =>
+              [...button.querySelectorAll('img')].every(
+                (image) => image.complete && image.naturalWidth > 0,
+              ),
+            ),
+            'Illustrated forest and cave choices',
           );
           assert(
-            getComputedStyle(no()).backgroundColor === 'rgb(198, 40, 40)',
-            'Red No',
+            acorns().getBoundingClientRect().bottom <=
+              document
+                .getElementById('video-ending-title')
+                .getBoundingClientRect().top,
+            'Acorns stay above the title',
+          );
+          assert(
+            document.querySelectorAll('.ending-mascot').length <= 1 &&
+              !document.querySelector('.cacomixtle-layer'),
+            'One ending mascot, no ambient duplicate',
           );
           assert(
             yes().getBoundingClientRect().height >= 111.5,
@@ -147,10 +259,101 @@
             no().getBoundingClientRect().height >= 111.5,
             'Large No target',
           );
-          yes().click();
           await waitFor(
-            () => document.querySelector('h1')?.textContent === '¡Hola!',
+            () => acorns()?.querySelectorAll('[data-acorn]').length === 1,
           );
+          assert(
+            acorns().querySelectorAll('[data-acorn]').length === 1,
+            'One acorn for one ended video',
+          );
+          assert(
+            getComputedStyle(
+              acorns().querySelector('.acorn-texture'),
+            ).backgroundImage.includes('cacomixtle-carrying-acorn.png'),
+            'The row uses the exact carried acorn pixels',
+          );
+          const carry = document.querySelector('.ending-carry-sprite');
+          if (carry)
+            assert(
+              getComputedStyle(carry).backgroundSize === '200% 200%',
+              'Carrying frames use the two-by-two atlas',
+            );
+          await waitFor(() =>
+            document.querySelector('[data-ending-phase="waiting"]'),
+          );
+          const actor = document.querySelector('.ending-mascot');
+          if (actor) {
+            const actorBounds = actor.getBoundingClientRect();
+            const actorStyle = getComputedStyle(actor);
+            assert(
+              Math.abs(
+                actorBounds.left -
+                  parseFloat(actorStyle.getPropertyValue('--deposit-x')),
+              ) < 2 &&
+                Math.abs(
+                  actorBounds.top -
+                    parseFloat(actorStyle.getPropertyValue('--deposit-y')),
+                ) < 2,
+              'Mascot stays at its delivery position above the title',
+            );
+            if (document.getElementById('reduced').checked)
+              assert(
+                actor.querySelector('.ending-closed-sprite').getAnimations()
+                  .length === 0,
+                'Reduced motion has no idle animation',
+              );
+          }
+          assert(
+            !yes().disabled &&
+              !no().disabled &&
+              getComputedStyle(yes()).visibility === 'visible',
+            'Choices appear only when delivery finishes',
+          );
+          const firstBounds = yes().getBoundingClientRect();
+          yes().click();
+          if (!document.getElementById('reduced').checked) {
+            await waitFor(() => yes()?.disabled);
+            assert(
+              yes().disabled && no().disabled,
+              'First tap locks both choices',
+            );
+            assert(
+              getComputedStyle(yes()).backgroundColor === 'rgba(0, 0, 0, 0)' &&
+                getComputedStyle(yes()).borderColor === 'rgba(0, 0, 0, 0)' &&
+                getComputedStyle(yes()).outlineStyle === 'none' &&
+                getComputedStyle(yes().querySelector('.ending-choice-label'))
+                  .visibility === 'hidden',
+              'Selected forest immediately becomes only artwork',
+            );
+            assert(
+              getComputedStyle(no()).visibility === 'hidden',
+              'Unselected cave hides immediately',
+            );
+            no().click();
+            await waitFor(() => scene()?.dataset.endingPhase === 'entering');
+            const rear = document.querySelector('.ending-enter-sprite');
+            assert(
+              rear &&
+                getComputedStyle(rear).animationName === 'ending-enter' &&
+                !getComputedStyle(
+                  document.querySelector('.ending-closed-sprite'),
+                ).animationName.includes('cave'),
+              'Forest turns its back without waving',
+            );
+            const focused = yes().getBoundingClientRect();
+            const sceneBounds = scene().getBoundingClientRect();
+            assert(
+              focused.width > firstBounds.width + 10 &&
+                Math.abs(
+                  focused.left +
+                    focused.width / 2 -
+                    sceneBounds.left -
+                    sceneBounds.width / 2,
+                ) < 2,
+              'Selected forest centers and grows before entry',
+            );
+          }
+          await waitFor(() => !document.querySelector('video'));
           assert(
             !document.querySelector('video'),
             'Yes leaves player for home',
@@ -162,12 +365,97 @@
           );
           assert(!choice(), 'Fresh player clears ending state');
           nextVideo.dispatchEvent(new Event('ended'));
+          nextVideo.dispatchEvent(new Event('ended'));
           await waitFor(no);
+          await waitFor(
+            () => acorns()?.querySelectorAll('[data-acorn]').length === 2,
+          );
+          assert(
+            acorns().querySelectorAll('[data-acorn]').length === 2,
+            'Two acorns for two ended videos, without duplicates',
+          );
+          await waitFor(() => scene()?.dataset.endingPhase === 'waiting');
+          const caveBounds = no().getBoundingClientRect();
           no().click();
+          if (!document.getElementById('reduced').checked) {
+            await waitFor(() => no()?.disabled);
+            assert(
+              yes().disabled && no().disabled,
+              'Finish locks both choices',
+            );
+            assert(
+              getComputedStyle(no()).backgroundColor === 'rgba(0, 0, 0, 0)' &&
+                getComputedStyle(no()).borderColor === 'rgba(0, 0, 0, 0)' &&
+                getComputedStyle(no()).outlineStyle === 'none' &&
+                getComputedStyle(no().querySelector('.ending-choice-label'))
+                  .visibility === 'hidden',
+              'Selected cave immediately becomes only artwork',
+            );
+            assert(
+              getComputedStyle(yes()).visibility === 'hidden',
+              'Unselected forest and its foreground cannot occlude the cave journey',
+            );
+            yes().click();
+            await waitFor(() => scene()?.dataset.endingPhase === 'entering');
+            assert(
+              getComputedStyle(document.querySelector('.ending-closed-sprite'))
+                .animationName === 'ending-cave-poses' &&
+                getComputedStyle(document.querySelector('.ending-enter-sprite'))
+                  .animationName === 'ending-cave-enter',
+              'Cave waves before the rear-entry sequence',
+            );
+          }
           await waitFor(() =>
             choice()?.textContent.includes('Hasta la próxima'),
           );
-          assert(!yes() && !no(), 'Goodbye has no browsing actions');
+          await waitFor(() => scene()?.dataset.endingPhase === 'finished');
+          if (!reduced) {
+            const caveMount = foregroundMounts.find(
+              (mount) => mount.choice === 'finish',
+            );
+            assert(
+              caveMount?.src.includes('cacomixtle-cave-roots.png') &&
+                caveMount.delay >= 1_750,
+              'Only the selected cave mounts its foreground after the entrance portion starts',
+            );
+            assert(
+              !foregroundMounts.some((mount) => mount.choice === 'continue'),
+              'No forest copy can cover the mascot on approach',
+            );
+          }
+          const finalBounds = no().getBoundingClientRect();
+          const finalScene = scene().getBoundingClientRect();
+          assert(
+            no().disabled &&
+              yes().disabled &&
+              getComputedStyle(yes()).visibility === 'hidden',
+            'Final cave has no active browsing choices',
+          );
+          assert(
+            finalBounds.width > caveBounds.width + 10 &&
+              Math.abs(
+                finalBounds.left +
+                  finalBounds.width / 2 -
+                  finalScene.left -
+                  finalScene.width / 2,
+              ) < 2,
+            'Final cave stays centered and enlarged',
+          );
+          assert(
+            no()
+              .querySelector('img')
+              .src.includes('cacomixtle-cave-roots.png') &&
+              getComputedStyle(no()).visibility === 'visible',
+            'Final screen retains the cave artwork',
+          );
+          assert(
+            !document.querySelector('.ending-mascot'),
+            'The same mascot finishes inside the cave',
+          );
+          assert(
+            !sessionStorage.getItem('wawatube.telemetry.session'),
+            'Finish clears the session',
+          );
           assert(
             choice().contains(document.activeElement),
             'Focus stays in goodbye',

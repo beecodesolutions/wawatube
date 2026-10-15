@@ -6,9 +6,8 @@ import {
   type CSSProperties,
 } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useLocation, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
-import WavingHandRoundedIcon from '@mui/icons-material/WavingHandRounded';
 import {
   MediaControlBar,
   MediaController,
@@ -22,8 +21,6 @@ import {
   CardContent,
   Container,
   Dialog,
-  DialogContent,
-  DialogTitle,
   IconButton,
   SvgIcon,
   Stack,
@@ -39,15 +36,16 @@ import {
   ErrorState,
   LoadingState,
 } from '../../components/Shared';
-import { SmartDisplay } from '@mui/icons-material';
 import { sendCacomixtleEvent } from './cacomixtle-events';
-import { cacomixtleEnabled } from './cacomixtle-config';
 import {
   clearTelemetrySession,
   createTelemetryId,
+  getTelemetryCompletedVideos,
   getTelemetrySessionId,
+  recordTelemetryCompletion,
   touchTelemetrySession,
 } from './telemetry';
+import { ChildEndingScene } from './ChildEndingScene';
 
 export const THUMBNAIL_RETRY_DELAYS_MS = [1000, 3000, 10000] as const;
 
@@ -454,6 +452,7 @@ export function MediaThumbnail({ media }: { media: ChildMedia }) {
 }
 
 export function ChildPlayer() {
+  const navigate = useNavigate();
   const { t } = useTranslation();
   const theme = useTheme();
   const { mediaId } = useParams();
@@ -474,9 +473,7 @@ export function ChildPlayer() {
   const [playing, setPlaying] = useState(false);
   const [media, setMedia] = useState<ChildMedia | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [ending, setEnding] = useState<'watching' | 'choice' | 'goodbye'>(
-    'watching',
-  );
+  const [ending, setEnding] = useState<'watching' | 'choice'>('watching');
   const viewedRef = useRef(false);
   const sessionIdRef = useRef<string | null>(null);
   const viewIdRef = useRef<string | null>(null);
@@ -484,10 +481,15 @@ export function ChildPlayer() {
   const endedRef = useRef(false);
   const playingSinceRef = useRef<number | null>(null);
   const pendingSecondsRef = useRef(0);
+  const [sessionKey, setSessionKey] = useState(() => getTelemetrySessionId());
 
-  if (sessionIdRef.current === null)
-    sessionIdRef.current = getTelemetrySessionId();
+  if (sessionIdRef.current === null) sessionIdRef.current = sessionKey;
   if (viewIdRef.current === null) viewIdRef.current = createTelemetryId();
+
+  const [completedVideos, setCompletedVideos] = useState(() =>
+    getTelemetryCompletedVideos(),
+  );
+  const [depositKey, setDepositKey] = useState(0);
 
   const recordTelemetry = useCallback(
     (
@@ -567,11 +569,14 @@ export function ChildPlayer() {
     if (sessionId === sessionIdRef.current) return;
     endCurrentView();
     sessionIdRef.current = sessionId;
+    setSessionKey(sessionId);
     viewIdRef.current = createTelemetryId();
     watchedSecondsRef.current = 0;
     pendingSecondsRef.current = 0;
     viewedRef.current = false;
     endedRef.current = false;
+    setCompletedVideos(0);
+    setDepositKey(0);
   };
 
   const beginPlayback = () => {
@@ -796,8 +801,13 @@ export function ChildPlayer() {
                     setPlaying(false);
                   }}
                   onEnded={() => {
+                    if (endedRef.current) return;
                     sendCacomixtleEvent('videoEnded');
                     endedRef.current = true;
+                    setCompletedVideos(
+                      recordTelemetryCompletion(sessionIdRef.current ?? ''),
+                    );
+                    setDepositKey((key) => key + 1);
                     flushTelemetry({ ended: true, completed: true });
                     setEnding('choice');
                     setPlaying(false);
@@ -941,137 +951,17 @@ export function ChildPlayer() {
                   },
                 }}
               >
-                <DialogTitle
-                  id="video-ending-title"
-                  sx={{
-                    fontSize: { xs: '2rem', sm: '3.5rem' },
-                    fontWeight: 800,
-                  }}
-                >
-                  {t(
-                    ending === 'goodbye'
-                      ? 'child.goodbye'
-                      : 'child.watchAnother',
-                  )}
-                </DialogTitle>
-                <DialogContent
-                  sx={{ flex: '0 0 auto', width: '100%', maxWidth: 600 }}
-                >
-                  {ending === 'choice' ? (
-                    <Stack direction="row" spacing={3}>
-                      <Button
-                        autoFocus
-                        component={Link}
-                        to="/"
-                        replace
-                        variant="contained"
-                        aria-label={t('child.watchAnotherShort')}
-                        sx={{
-                          flex: 1,
-                          minWidth: 0,
-                          minHeight: 144,
-                          backgroundColor: 'success.main',
-                          color: (theme) => theme.palette.artwork.onOverlay,
-                          '&:hover': { backgroundColor: 'success.dark' },
-                        }}
-                      >
-                        <Stack alignItems="center" spacing={1}>
-                          <Box
-                            aria-hidden
-                            sx={{
-                              height: 80,
-                              display: 'flex',
-                              alignItems: 'center',
-                            }}
-                          >
-                            <SmartDisplay sx={{ fontSize: 72 }} />
-                          </Box>
-                          <Typography sx={{ fontWeight: 800 }}>
-                            {t('child.watchAnotherShort')}
-                          </Typography>
-                        </Stack>
-                      </Button>
-                      <Button
-                        variant="contained"
-                        aria-label={t('child.finish')}
-                        onClick={() => {
-                          clearTelemetrySession();
-                          setEnding('goodbye');
-                          sendCacomixtleEvent('sessionEnded');
-                        }}
-                        sx={{
-                          flex: 1,
-                          minWidth: 0,
-                          minHeight: 144,
-                          backgroundColor: 'error.main',
-                          color: (theme) => theme.palette.artwork.onOverlay,
-                          '&:hover': { backgroundColor: 'error.dark' },
-                        }}
-                      >
-                        <Stack alignItems="center" spacing={1}>
-                          <Box
-                            aria-hidden
-                            sx={{
-                              height: 80,
-                              display: 'flex',
-                              alignItems: 'center',
-                            }}
-                          >
-                            <WavingHandRoundedIcon sx={{ fontSize: 72 }} />
-                          </Box>
-                          <Typography sx={{ fontWeight: 800 }}>
-                            {t('child.finish')}
-                          </Typography>
-                        </Stack>
-                      </Button>
-                    </Stack>
-                  ) : cacomixtleEnabled ? null : (
-                    <Box
-                      role="img"
-                      aria-label={t('child.goodbye')}
-                      sx={{ position: 'relative', display: 'inline-block' }}
-                    >
-                      <Box
-                        component="img"
-                        src="/logo-child.webp"
-                        alt=""
-                        sx={{
-                          width: { xs: 200, sm: 280 },
-                          maxWidth: '100%',
-                          animation: 'mascotBob 2.4s ease-in-out infinite',
-                          '@keyframes mascotBob': {
-                            '0%, 100%': { transform: 'translateY(0)' },
-                            '50%': { transform: 'translateY(-7px)' },
-                          },
-                          '@media (prefers-reduced-motion: reduce)': {
-                            animation: 'none',
-                          },
-                        }}
-                      />
-                      <WavingHandRoundedIcon
-                        aria-hidden="true"
-                        sx={{
-                          position: 'absolute',
-                          right: { xs: -15, sm: -22 },
-                          top: { xs: 32, sm: 44 },
-                          fontSize: { xs: 64, sm: 86 },
-                          color: '#ffc627',
-                          filter: 'drop-shadow(0 3px 0 #075678)',
-                          transformOrigin: '25% 90%',
-                          animation: 'mascotWave 2.4s ease-in-out infinite',
-                          '@keyframes mascotWave': {
-                            '0%, 45%, 100%': { transform: 'rotate(0deg)' },
-                            '55%, 75%': { transform: 'rotate(-22deg)' },
-                            '65%, 85%': { transform: 'rotate(12deg)' },
-                          },
-                          '@media (prefers-reduced-motion: reduce)': {
-                            animation: 'none',
-                          },
-                        }}
-                      />
-                    </Box>
-                  )}
-                </DialogContent>
+                {ending === 'choice' && (
+                  <ChildEndingScene
+                    key={`${sessionKey}-${depositKey}`}
+                    count={completedVideos}
+                    depositKey={depositKey}
+                    onContinue={() => navigate('/', { replace: true })}
+                    onFinish={() => {
+                      clearTelemetrySession();
+                    }}
+                  />
+                )}
               </Dialog>
             </Box>
           </Stack>

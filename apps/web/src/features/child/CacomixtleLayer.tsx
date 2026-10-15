@@ -28,7 +28,6 @@ export function CacomixtleLayer({
   const [farewellRun, setFarewellRun] = useState(0);
   const [homeRun, setHomeRun] = useState(0);
   const [farewellActive, setFarewellActive] = useState(false);
-  const [endedPath, setEndedPath] = useState<string | null>(null);
   const [host, setHost] = useState<Element>(() => document.body);
 
   useEffect(() => {
@@ -75,10 +74,8 @@ export function CacomixtleLayer({
         farewell = false;
         setFarewellActive(false);
       }
-      if (action === 'videoStarted') setEndedPath(null);
-      if (action === 'videoEnded' || action === 'sessionEnded')
-        setEndedPath(watchPath);
-      controller.send(action);
+      // The end screen owns the mascot's acorn deposit animation.
+      if (action !== 'videoEnded') controller.send(action);
     };
     window.addEventListener(CACOMIXTLE_EVENT, handleEvent);
     controller.send(watchPath ? 'videoStarted' : 'sessionStarted');
@@ -101,7 +98,7 @@ export function CacomixtleLayer({
     reducedMotion ||
     pathname.startsWith('/parent') ||
     (visibleState === 'hidden' && !farewellActive) ||
-    (watchPath !== null && endedPath !== watchPath)
+    watchPath !== null
   )
     return null;
 

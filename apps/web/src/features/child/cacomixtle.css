@@ -1,3 +1,6 @@
+:root {
+  --cacomixtle-size: 100px;
+}
 .cacomixtle-layer {
   position: fixed;
   inset: 0;
@@ -5,7 +8,7 @@
   pointer-events: none;
   z-index: 1400;
   contain: layout paint;
-  --mascot-height: 100px;
+  --mascot-height: var(--cacomixtle-size);
 }
 .cacomixtle-layer * {
   pointer-events: none;
@@ -110,13 +113,19 @@
   }
 }
 @media (min-width: 600px) {
+  :root {
+    --cacomixtle-size: 120px;
+  }
   .cacomixtle-layer {
-    --mascot-height: 120px;
+    --mascot-height: var(--cacomixtle-size);
   }
 }
 @media (min-width: 1200px) {
+  :root {
+    --cacomixtle-size: 140px;
+  }
   .cacomixtle-layer {
-    --mascot-height: 140px;
+    --mascot-height: var(--cacomixtle-size);
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -192,7 +201,7 @@
   overflow: visible;
   isolation: isolate;
   --farewell-scene-height: clamp(167px, 26.667vw, 280px);
-  --farewell-character-size: clamp(100px, 10vw, 140px);
+  --farewell-character-size: var(--cacomixtle-size);
   --farewell-stop-x: calc(38% - var(--farewell-character-size) / 2);
   --farewell-turn-x: calc(45% - var(--farewell-character-size) / 2);
   --farewell-depth-x: calc(52% - var(--farewell-character-size) / 2);

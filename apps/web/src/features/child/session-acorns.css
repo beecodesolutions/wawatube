@@ -1,0 +1,531 @@
+.child-ending-scene {
+  position: relative;
+  width: min(100%, 600px);
+  margin-inline: auto;
+  padding-top: calc(var(--cacomixtle-size, 100px) * 0.8);
+  --session-acorn-size: 42px;
+}
+.ending-choices {
+  display: flex;
+  justify-content: space-between;
+  gap: 18%;
+  min-height: 220px;
+  margin-top: 12px;
+}
+.ending-choice.MuiButton-root {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  width: 41%;
+  min-width: 0;
+  min-height: 220px;
+  padding: 8px 4px;
+  border: 3px solid transparent;
+  border-radius: 24px;
+  color: inherit;
+  text-transform: none;
+}
+.ending-forest.MuiButton-root {
+  background-color: rgb(46 125 50 / 12%);
+  border-color: rgb(46 125 50 / 28%);
+}
+.ending-cave.MuiButton-root {
+  background-color: rgb(198 40 40 / 10%);
+  border-color: rgb(198 40 40 / 25%);
+}
+.ending-forest.MuiButton-root:hover,
+.ending-forest.MuiButton-root:focus-visible {
+  background-color: rgb(46 125 50 / 20%);
+  border-color: #2e7d32;
+}
+.ending-cave.MuiButton-root:hover,
+.ending-cave.MuiButton-root:focus-visible {
+  background-color: rgb(198 40 40 / 18%);
+  border-color: #c62828;
+}
+.ending-choice.MuiButton-root:focus-visible {
+  outline: 3px solid currentColor;
+  outline-offset: 4px;
+}
+.ending-choice.MuiButton-root[aria-pressed='true'] {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  outline: none;
+}
+.ending-choice[aria-pressed='true'] .ending-choice-label {
+  visibility: hidden;
+}
+.ending-choice.MuiButton-root.Mui-disabled {
+  color: inherit;
+  opacity: 0.55;
+}
+.ending-choice.MuiButton-root[aria-pressed='true'] {
+  opacity: 1;
+}
+.child-ending-scene[data-ending-phase='delivery'] .ending-choices {
+  visibility: hidden;
+}
+.child-ending-scene:not([data-ending-choice=''])
+  .ending-choice[aria-pressed='false'] {
+  visibility: hidden;
+  pointer-events: none;
+}
+.ending-choice.MuiButton-root[aria-pressed='true'] {
+  position: fixed;
+  z-index: 1;
+  left: var(--focus-left);
+  top: var(--focus-top);
+  width: var(--focus-width);
+  height: var(--focus-height);
+  min-height: 0;
+  transform-origin: 0 0;
+}
+.child-ending-scene[data-ending-phase='focusing']
+  .ending-choice[aria-pressed='true'] {
+  animation: ending-focus-choice 650ms ease-in-out both;
+}
+.ending-choice-art {
+  display: block;
+  width: 100%;
+  height: 170px;
+  object-fit: contain;
+  pointer-events: none;
+}
+.ending-destination-foreground {
+  position: fixed;
+  z-index: 4;
+  object-fit: contain;
+  pointer-events: none;
+}
+.ending-cave-foreground {
+  clip-path: polygon(
+    evenodd,
+    0 0,
+    100% 0,
+    100% 100%,
+    0 100%,
+    0 0,
+    35% 80%,
+    70% 80%,
+    69% 55%,
+    62% 40%,
+    52% 36%,
+    43% 40%,
+    38% 55%,
+    35% 80%
+  );
+}
+.ending-cave-artbox {
+  position: relative;
+  width: 100%;
+  height: 170px;
+}
+.ending-cave-artbox > .ending-choice-art {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 3 / 2;
+  transform: translateY(-50%);
+}
+.ending-choice[aria-pressed='true'] > .ending-choice-art,
+.ending-choice[aria-pressed='true'] .ending-cave-artbox {
+  height: calc(var(--focus-height) - 52px);
+}
+.session-acorns {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: min(600px, calc(100vw - 2 * var(--cacomixtle-size, 100px)));
+  min-height: 58px;
+  margin: 0 auto 8px;
+  gap: 4px;
+}
+.session-acorn-slot {
+  position: relative;
+  display: grid;
+  width: 54px;
+  height: 58px;
+  place-items: center;
+}
+.session-acorn-icon {
+  display: inline-grid;
+  place-items: center;
+  width: var(--session-acorn-size) !important;
+  height: var(--session-acorn-size) !important;
+}
+.acorn-texture {
+  display: block;
+  width: calc(var(--session-acorn-size) * 126 / 151);
+  height: var(--session-acorn-size);
+  background-image: url('/cacomixtle-carrying-acorn.png');
+  background-size: 995.238095% 830.463576%;
+  background-position: 3.102837% 34.360834%;
+  clip-path: polygon(
+    0 20%,
+    8% 11%,
+    25% 4%,
+    45% 0,
+    58% 0,
+    60% 8%,
+    76% 13%,
+    98% 27%,
+    100% 32%,
+    95% 36%,
+    92% 50%,
+    85% 67%,
+    70% 85%,
+    50% 100%,
+    32% 91%,
+    18% 78%,
+    9% 61%,
+    7% 37%,
+    0 33%
+  );
+}
+.ending-deposited-acorn {
+  animation: ending-acorn-drop 3.9s ease-in both;
+}
+.ending-mascot {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 3;
+  width: var(--cacomixtle-size, 100px);
+  height: var(--cacomixtle-size, 100px);
+  pointer-events: none;
+  transform: translate(var(--deposit-x), var(--deposit-y));
+}
+.ending-mascot-delivery {
+  animation: ending-delivery 3.9s ease-in-out both;
+}
+.ending-closed-sprite,
+.ending-carry-sprite,
+.ending-enter-sprite {
+  position: absolute;
+  inset: 0;
+  background-repeat: no-repeat;
+}
+.ending-closed-sprite {
+  background-image: url('/cacomixtle-sprites.png');
+  background-size: 400% 300%;
+  background-position: 0 100%;
+}
+.ending-carry-sprite {
+  background-image: url('/cacomixtle-carrying-acorn.png');
+  background-size: 200% 200%;
+  animation:
+    ending-carry-gait 800ms steps(1) 3 forwards,
+    ending-carry-visible 3.9s steps(1) both;
+}
+.ending-mascot-delivery .ending-closed-sprite {
+  animation: ending-closed-visible 3.9s steps(1) both;
+}
+.ending-mascot-waiting .ending-closed-sprite,
+.ending-mascot-delivery .ending-closed-sprite {
+  background-image: url('/cacomixtle-looking.png');
+  background-size: 300% 100%;
+  background-position: 0 0;
+  clip-path: polygon(
+    0 0,
+    100% 0,
+    100% 27%,
+    46% 27%,
+    46% 64%,
+    100% 64%,
+    100% 100%,
+    0 100%
+  );
+}
+.ending-mascot-waiting .ending-closed-sprite {
+  animation: none;
+}
+.ending-mascot-delivery .ending-gaze-head {
+  animation: ending-closed-visible 3.9s steps(1) both;
+}
+.ending-gaze-head {
+  position: absolute;
+  left: 46%;
+  top: 27%;
+  width: 50%;
+  height: 37%;
+  background-image: url('/cacomixtle-looking.png');
+  background-size: 600% 270.27027%;
+  background-position: 18.4% 42.857143%;
+}
+.ending-mascot-waiting[data-look='left'] .ending-gaze-head,
+.ending-mascot-waiting[data-look='right'] .ending-gaze-head {
+  background-position-x: 98.4%;
+}
+.ending-mascot-waiting[data-look='left'] .ending-gaze-head {
+  transform: scaleX(-1);
+}
+.ending-mascot-entering {
+  animation: ending-choice-journey var(--entry-duration) ease-in-out both;
+}
+.ending-mascot-entering .ending-closed-sprite {
+  background-position: 0 0;
+  animation: ending-gait 600ms steps(1) infinite;
+}
+.ending-mascot-entering[data-choice='continue'] .ending-closed-sprite {
+  transform: scaleX(-1);
+}
+.ending-mascot-entering[data-choice='continue'] {
+  animation:
+    ending-choice-journey 1.5s ease-in-out both,
+    ending-forest-disappear 1.5s ease-in both;
+  --journey-scale: 0.85;
+  --journey-opacity: 1;
+}
+.ending-enter-sprite {
+  background-image: url('/cacomixtle-enter.png');
+  background-size: 400% 100%;
+  animation: ending-enter 1.5s steps(1) both;
+}
+.ending-mascot-entering[data-choice='continue'] .ending-closed-sprite {
+  animation:
+    ending-gait 600ms steps(1) infinite,
+    ending-run-hide 1.5s steps(1) both;
+}
+.ending-mascot-entering[data-choice='finish'] {
+  animation-name: ending-cave-journey;
+}
+.ending-mascot-entering[data-choice='finish'] .ending-closed-sprite {
+  animation: ending-cave-poses 2.7s steps(1) both;
+}
+.ending-mascot-entering[data-choice='finish'] .ending-enter-sprite {
+  animation: ending-cave-enter 2.7s steps(1) both;
+}
+@keyframes ending-delivery {
+  from {
+    transform: translate(var(--start-x), var(--start-y));
+  }
+  61.538462%,
+  100% {
+    transform: translate(var(--deposit-x), var(--deposit-y));
+  }
+}
+@keyframes ending-acorn-drop {
+  0%,
+  84.6% {
+    opacity: 0;
+    transform: translateY(-16px) scale(var(--acorn-release-scale));
+  }
+  84.615385% {
+    opacity: 1;
+    transform: translateY(-16px) scale(var(--acorn-release-scale));
+  }
+  98.461538%,
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes ending-carry-visible {
+  0%,
+  84.6% {
+    visibility: visible;
+  }
+  84.615385%,
+  100% {
+    visibility: hidden;
+  }
+}
+@keyframes ending-closed-visible {
+  0%,
+  84.6% {
+    visibility: hidden;
+  }
+  84.615385%,
+  100% {
+    visibility: visible;
+  }
+}
+@keyframes ending-carry-gait {
+  0%,
+  100% {
+    background-position: 0 0;
+  }
+  25% {
+    background-position: 100% 0;
+  }
+  50% {
+    background-position: 0 100%;
+  }
+  75% {
+    background-position: 100% 100%;
+  }
+}
+@keyframes ending-gait {
+  0%,
+  100% {
+    background-position-x: 0;
+  }
+  25% {
+    background-position-x: 33.333333%;
+  }
+  50% {
+    background-position-x: 66.666667%;
+  }
+  75% {
+    background-position-x: 100%;
+  }
+}
+@keyframes ending-choice-journey {
+  from {
+    transform: translate(var(--deposit-x), var(--deposit-y));
+    opacity: 1;
+  }
+  55% {
+    transform: translate(var(--target-x), var(--approach-y));
+    opacity: 1;
+  }
+  to {
+    transform: translate(var(--target-x), var(--target-y))
+      scale(var(--journey-scale, 0.65));
+    opacity: var(--journey-opacity, 0);
+  }
+}
+@keyframes ending-enter {
+  0%,
+  54.99% {
+    visibility: hidden;
+    background-position: 0 0;
+  }
+  55% {
+    visibility: visible;
+    background-position: 0 0;
+  }
+  70% {
+    visibility: visible;
+    background-position: 33.333333% 0;
+  }
+  85% {
+    visibility: visible;
+    background-position: 66.666667% 0;
+  }
+  100% {
+    visibility: visible;
+    background-position: 100% 0;
+  }
+}
+@keyframes ending-run-hide {
+  0%,
+  54.99% {
+    visibility: visible;
+  }
+  55%,
+  100% {
+    visibility: hidden;
+  }
+}
+@media (min-width: 600px) {
+  .child-ending-scene {
+    --session-acorn-size: 54px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ending-mascot,
+  .ending-mascot *,
+  .ending-deposited-acorn {
+    animation: none !important;
+  }
+}
+
+@keyframes ending-focus-choice {
+  from {
+    transform: translate(var(--focus-x), var(--focus-y))
+      scale(var(--focus-scale-x), var(--focus-scale-y));
+  }
+  to {
+    transform: none;
+  }
+}
+.child-ending-scene[data-motion='false'] *,
+.child-ending-scene[data-motion='false'] .ending-mascot {
+  animation: none !important;
+}
+
+@keyframes ending-forest-disappear {
+  0%,
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes ending-cave-journey {
+  from {
+    transform: translate(var(--deposit-x), var(--deposit-y));
+    opacity: 1;
+  }
+  33.333333%,
+  66.666667% {
+    transform: translate(var(--target-x), var(--approach-y));
+    opacity: 1;
+  }
+  to {
+    transform: translate(var(--target-x), var(--target-y)) scale(0.65);
+    opacity: 0;
+  }
+}
+@keyframes ending-cave-poses {
+  0% {
+    visibility: visible;
+    background-position: 0 0;
+  }
+  8.333333% {
+    background-position: 33.333333% 0;
+  }
+  16.666667% {
+    background-position: 66.666667% 0;
+  }
+  25% {
+    background-position: 100% 0;
+  }
+  33.333333% {
+    background-position: 0 50%;
+  }
+  41.666667% {
+    background-position: 33.333333% 50%;
+  }
+  50% {
+    background-position: 66.666667% 50%;
+  }
+  58.333333% {
+    background-position: 100% 50%;
+  }
+  66.666667%,
+  100% {
+    visibility: hidden;
+  }
+}
+@keyframes ending-cave-enter {
+  0%,
+  66.66% {
+    visibility: hidden;
+    background-position: 0 0;
+  }
+  66.666667% {
+    visibility: visible;
+    background-position: 0 0;
+  }
+  75% {
+    visibility: visible;
+    background-position: 33.333333% 0;
+  }
+  83.333333% {
+    visibility: visible;
+    background-position: 66.666667% 0;
+  }
+  91.666667%,
+  100% {
+    visibility: visible;
+    background-position: 100% 0;
+  }
+}

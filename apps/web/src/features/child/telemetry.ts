@@ -6,6 +6,7 @@ const UUID_PATTERN =
 interface StoredSession {
   id: string;
   lastActivityAt: number;
+  completedVideos: number;
 }
 
 let volatileSession: StoredSession | null = null;
@@ -39,7 +40,18 @@ function readStoredSession(): StoredSession | null {
       !Number.isFinite(value.lastActivityAt)
     )
       return null;
-    return { id: value.id, lastActivityAt: value.lastActivityAt };
+    const completedVideos =
+      'completedVideos' in value &&
+      typeof value.completedVideos === 'number' &&
+      Number.isInteger(value.completedVideos) &&
+      value.completedVideos >= 0
+        ? value.completedVideos
+        : 0;
+    return {
+      id: value.id,
+      lastActivityAt: value.lastActivityAt,
+      completedVideos,
+    };
   } catch {
     return volatileSession;
   }
@@ -60,12 +72,35 @@ export function getTelemetrySessionId(now = Date.now()): string {
     return stored.id;
 
   const id = createTelemetryId();
-  writeStoredSession({ id, lastActivityAt: now });
+  writeStoredSession({ id, lastActivityAt: now, completedVideos: 0 });
   return id;
 }
 
 export function touchTelemetrySession(id: string, now = Date.now()): void {
-  writeStoredSession({ id, lastActivityAt: now });
+  const stored = readStoredSession();
+  writeStoredSession({
+    id,
+    lastActivityAt: now,
+    completedVideos: stored?.id === id ? stored.completedVideos : 0,
+  });
+}
+
+export function getTelemetryCompletedVideos(now = Date.now()): number {
+  const stored = readStoredSession();
+  return stored && now - stored.lastActivityAt <= SESSION_IDLE_MS
+    ? stored.completedVideos
+    : 0;
+}
+
+export function recordTelemetryCompletion(
+  sessionId: string,
+  now = Date.now(),
+): number {
+  const stored = readStoredSession();
+  if (!stored || stored.id !== sessionId) return 0;
+  const completedVideos = stored.completedVideos + 1;
+  writeStoredSession({ id: sessionId, lastActivityAt: now, completedVideos });
+  return completedVideos;
 }
 
 export function clearTelemetrySession(): void {

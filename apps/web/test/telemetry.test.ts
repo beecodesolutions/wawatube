@@ -21,18 +21,26 @@ Object.defineProperty(globalThis, 'crypto', {
 const {
   clearTelemetrySession,
   createTelemetryId,
+  getTelemetryCompletedVideos,
   getTelemetrySessionId,
+  recordTelemetryCompletion,
   touchTelemetrySession,
 } = await import('../src/features/child/telemetry.ts');
 
 const first = getTelemetrySessionId(1_000);
 assert.match(first, uuid);
+assert.equal(getTelemetryCompletedVideos(1_000), 0);
+assert.equal(recordTelemetryCompletion(first, 1_001), 1);
+assert.equal(getTelemetryCompletedVideos(1_001), 1);
+assert.equal(recordTelemetryCompletion(first, 1_002), 2);
 assert.equal(getTelemetrySessionId(1_000 + 29 * 60 * 1_000), first);
-const afterIdle = getTelemetrySessionId(1_000 + 30 * 60 * 1_000 + 1);
+const afterIdle = getTelemetrySessionId(1_002 + 30 * 60 * 1_000 + 1);
 assert.match(afterIdle, uuid);
 assert.notEqual(afterIdle, first);
+assert.equal(getTelemetryCompletedVideos(1_002 + 30 * 60 * 1_000 + 1), 0);
 touchTelemetrySession(afterIdle, 2_000);
 clearTelemetrySession();
+assert.equal(getTelemetryCompletedVideos(2_000), 0);
 assert.notEqual(getTelemetrySessionId(2_001), afterIdle);
 
 const failingStorage = {
