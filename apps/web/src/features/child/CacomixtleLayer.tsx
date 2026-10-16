@@ -30,6 +30,7 @@ export function CacomixtleLayer({
   const homePath = pathname === '/' || pathname === '/dev/cacomixtle';
   const [state, setState] = useState<MascotState>('hidden');
   const [rockSide, setRockSide] = useState<RockSceneSide>('left');
+  const [rockPresent, setRockPresent] = useState(false);
   const [farewellRun, setFarewellRun] = useState(0);
   const [farewellActive, setFarewellActive] = useState(false);
   const [host, setHost] = useState<Element>(() => document.body);
@@ -45,9 +46,16 @@ export function CacomixtleLayer({
     if (!enabled || reducedMotion || previewState !== undefined) return;
     let farewell = false;
     let runs = 0;
+    let resetPending = true;
     const controller = createCacomixtleController(
       (next, nextRockSide) => {
+        if (resetPending && next === 'hidden') {
+          resetPending = false;
+          setRockPresent(false);
+          setRockSide('left');
+        }
         if (nextRockSide !== undefined) setRockSide(nextRockSide);
+        if (next === 'rockSettled') setRockPresent(true);
         if (farewell && next === 'runningRight') runs += 1;
         setFarewellRun(farewell ? runs : 0);
         setState(next);
@@ -59,9 +67,16 @@ export function CacomixtleLayer({
       if (action === 'sessionEnded') {
         farewell = true;
         setFarewellActive(true);
+        setRockPresent(false);
         runs = 0;
       }
-      if (action === 'videoStarted' || action === 'sessionStarted') {
+      if (action === 'videoStarted') {
+        farewell = false;
+        setFarewellActive(false);
+        setRockPresent(false);
+        setRockSide('left');
+      }
+      if (action === 'sessionStarted') {
         farewell = false;
         setFarewellActive(false);
       }
@@ -90,7 +105,7 @@ export function CacomixtleLayer({
     !enabled ||
     reducedMotion ||
     pathname.startsWith('/parent') ||
-    (visibleState === 'hidden' && !farewellActive) ||
+    (visibleState === 'hidden' && !farewellActive && !rockPresent) ||
     watchPath !== null
   )
     return null;
@@ -138,66 +153,57 @@ export function CacomixtleLayer({
             draggable={false}
           />
         </div>
-      ) : showRockScene ? (
-        <div
-          className="cacomixtle-rock-scene"
-          data-rock-side={activeRockSide}
-          data-rock-state={visibleState}
-        >
-          <img
-            className="cacomixtle-rock-art"
-            src="/cacomixtle-rock.png"
-            alt=""
-            draggable={false}
-          />
-          <svg
-            aria-hidden="true"
-            className="cacomixtle-rock-poop"
-            viewBox="0 0 80 64"
+      ) : showRockScene || (homePath && rockPresent) ? (
+        <>
+          <div
+            className="cacomixtle-rock-scene"
+            data-rock-side={activeRockSide}
+            data-rock-state={showRockScene ? visibleState : undefined}
           >
-            <path
-              d="M18 47c-2-6 3-10 9-11 0-6 6-10 12-7 4-5 12-2 14 4 7 0 11 4 9 9-2 7-12 8-19 5-8 4-22 4-25 0Z"
-              fill="#6d432c"
+            <img
+              className="cacomixtle-rock-art"
+              src="/cacomixtle-rock.png"
+              alt=""
+              draggable={false}
             />
-            <path
-              d="M25 40c3-3 8-4 11-1 2 2 1 5-2 7-4 2-9 1-11-2Z"
-              fill="#875638"
+            <img
+              className="cacomixtle-rock-droppings"
+              src="/cacomixtle-droppings.png"
+              alt=""
+              draggable={false}
             />
-            <path
-              d="M43 40c3-3 8-2 10 1 2 3 0 6-3 7-4 1-8-1-9-4Z"
-              fill="#815031"
-            />
-            <ellipse cx="24" cy="48" fill="#c8a06a" rx="2.5" ry="1.8" />
-            <ellipse cx="35" cy="50" fill="#b98d58" rx="2.2" ry="1.5" />
-            <ellipse cx="47" cy="48" fill="#c8a06a" rx="2.5" ry="1.7" />
-            <ellipse cx="57" cy="45" fill="#b98d58" rx="2" ry="1.4" />
-          </svg>
-          {visibleState !== 'rockSettled' ? (
-            <div
-              className={`cacomixtle-rock-character cacomixtle-${visibleState}`}
-            >
+            {showRockScene && visibleState !== 'rockSettled' ? (
               <div
-                className={
-                  visibleState === 'rockPooping' ||
-                  visibleState === 'rockSurprised'
-                    ? 'cacomixtle-pooping-sprite'
-                    : 'cacomixtle-sprite'
-                }
-              />
+                className={`cacomixtle-rock-character cacomixtle-${visibleState}`}
+              >
+                <div
+                  className={
+                    visibleState === 'rockPooping' ||
+                    visibleState === 'rockSurprised'
+                      ? 'cacomixtle-pooping-sprite'
+                      : 'cacomixtle-sprite'
+                  }
+                />
+              </div>
+            ) : null}
+          </div>
+          {!showRockScene && visibleState !== 'hidden' ? (
+            <div
+              key={visibleState}
+              className={`cacomixtle-motion cacomixtle-${visibleState}`}
+            >
+              <div className="cacomixtle-sprite" />
             </div>
           ) : null}
-        </div>
-      ) : (
+        </>
+      ) : visibleState !== 'hidden' ? (
         <div
           key={visibleState}
           className={`cacomixtle-motion cacomixtle-${visibleState}`}
         >
           <div className="cacomixtle-sprite" />
-          {visibleState.startsWith('walking') ? (
-            <div className="cacomixtle-walk-look" />
-          ) : null}
         </div>
-      )}
+      ) : null}
     </Box>,
     host,
   );

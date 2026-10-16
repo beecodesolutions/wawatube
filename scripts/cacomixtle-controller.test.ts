@@ -213,6 +213,17 @@ test('plays the rock scene at 25 percent and keeps scene and flee directions ind
   assert.deepEqual(left.rockSides.slice(1, 4), ['left', 'left', 'left']);
 });
 
+test('reuses the latrine side for later rock appearances in one session', () => {
+  const rock = createHarness([0, 0.24, 0.9, 0.1, 0, 0.24, 0.9]);
+  rock.send('sessionStarted');
+  rock.clock.advanceBy(8_000 + 45_000);
+  assert.equal(rock.states.at(-1), 'rockPooping');
+  assert.deepEqual(
+    rock.rockSides.filter((side): side is RockSceneSide => side !== undefined),
+    ['right', 'right', 'right', 'right', 'right'],
+  );
+});
+
 test('interrupts or disposes every rock phase without leaving timers', () => {
   const phases: readonly [number, MascotState][] = [
     [0, 'rockPooping'],

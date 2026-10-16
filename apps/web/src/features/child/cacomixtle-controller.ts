@@ -146,7 +146,7 @@ export function createCacomixtleController(
   let mode: Mode = 'inactive';
   let pendingTimer: unknown = null;
   let disposed = false;
-  let rockSceneSide: RockSceneSide = 'left';
+  let rockSceneSide: RockSceneSide | null = null;
 
   const clearPendingTimer = (): void => {
     if (pendingTimer === null) return;
@@ -156,10 +156,13 @@ export function createCacomixtleController(
 
   const emit = (state: MascotState): void => {
     if (disposed) return;
-    if (state === 'rockPooping') {
+    if (state === 'rockPooping' && rockSceneSide === null) {
       rockSceneSide = random() < 0.5 ? 'left' : 'right';
     }
-    onState(state, state.startsWith('rock') ? rockSceneSide : undefined);
+    onState(
+      state,
+      state.startsWith('rock') ? (rockSceneSide ?? 'left') : undefined,
+    );
   };
 
   const scheduleTimer = (delayMs: number, callback: () => void): void => {
@@ -262,7 +265,10 @@ export function createCacomixtleController(
 
     switch (event) {
       case 'sessionStarted':
-        if (mode !== 'browsing') startBrowsing();
+        if (mode !== 'browsing') {
+          rockSceneSide = null;
+          startBrowsing();
+        }
         return;
       case 'videoStarted':
         mode = 'video';

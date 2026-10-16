@@ -67,9 +67,7 @@
 .cacomixtle-walkingLeftToLeft .cacomixtle-sprite,
 .cacomixtle-walkingRightToRight .cacomixtle-sprite {
   background-position: 0 0;
-  animation:
-    cacomixtle-run 480ms steps(1) infinite,
-    cacomixtle-walk-sprite-visibility 6.5s steps(1) both;
+  animation: cacomixtle-run 480ms steps(1) infinite;
 }
 .cacomixtle-walkingRightToLeft .cacomixtle-sprite {
   transform: scaleX(-1);
@@ -78,25 +76,12 @@
 .cacomixtle-walkingRightToRight .cacomixtle-sprite {
   animation:
     cacomixtle-run 480ms steps(1) infinite,
-    cacomixtle-walk-sprite-visibility 6.5s steps(1) both,
     cacomixtle-walk-turn 6.5s linear both;
 }
 .cacomixtle-walkingRightToRight .cacomixtle-sprite {
   animation:
     cacomixtle-run 480ms steps(1) infinite,
-    cacomixtle-walk-sprite-visibility 6.5s steps(1) both,
     cacomixtle-walk-turn-right 6.5s linear both;
-}
-.cacomixtle-walk-look {
-  position: absolute;
-  inset: 0;
-  background-image: url('/cacomixtle-blink.png');
-  background-size: 400% 300%;
-  background-position: 0 100%;
-  opacity: 0;
-  animation:
-    cacomixtle-walk-look-visibility 6.5s steps(1) both,
-    cacomixtle-blink 1.95s steps(1) 1 2.015s forwards;
 }
 @keyframes cacomixtle-walk-left-right {
   0% {
@@ -146,30 +131,6 @@
     transform: translateX(100vw);
   }
 }
-@keyframes cacomixtle-walk-sprite-visibility {
-  0%,
-  30.99%,
-  61%,
-  100% {
-    visibility: visible;
-  }
-  31%,
-  60.99% {
-    visibility: hidden;
-  }
-}
-@keyframes cacomixtle-walk-look-visibility {
-  0%,
-  30.99%,
-  61%,
-  100% {
-    opacity: 0;
-  }
-  31%,
-  60.99% {
-    opacity: 1;
-  }
-}
 @keyframes cacomixtle-walk-turn {
   0%,
   54.99% {
@@ -208,12 +169,12 @@
   height: 100%;
   object-fit: contain;
 }
-.cacomixtle-rock-poop {
+.cacomixtle-rock-droppings {
   position: absolute;
   z-index: 2;
   left: 50%;
   bottom: 19%;
-  width: clamp(36px, 7vw, 58px);
+  width: clamp(45px, 8.75vw, 72px);
   height: auto;
   transform: translateX(-50%);
 }
@@ -253,9 +214,6 @@
   background-position: 0 0;
   animation: cacomixtle-run 480ms steps(1) infinite;
 }
-.cacomixtle-rock-scene[data-rock-state='rockSettled'] {
-  animation: cacomixtle-rock-settle 1.4s linear both;
-}
 @keyframes cacomixtle-rock-flee-left {
   from {
     transform: translateX(0);
@@ -270,15 +228,6 @@
   }
   to {
     transform: translateX(calc(100vw + var(--mascot-height)));
-  }
-}
-@keyframes cacomixtle-rock-settle {
-  0%,
-  71.42% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
   }
 }
 .cacomixtle-peeking {
