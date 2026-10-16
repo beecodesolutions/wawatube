@@ -53,6 +53,7 @@
   border-color: transparent;
   box-shadow: none;
   outline: none;
+  transition: none;
 }
 .ending-choice[aria-pressed='true'] .ending-choice-label {
   visibility: hidden;
@@ -197,7 +198,7 @@
   width: var(--cacomixtle-size, 100px);
   height: var(--cacomixtle-size, 100px);
   pointer-events: none;
-  transform: translate(var(--deposit-x), var(--deposit-y));
+  transform: translate(var(--waiting-x), var(--waiting-y));
 }
 .ending-mascot-delivery {
   animation: ending-delivery 3.9s ease-in-out both;
@@ -255,6 +256,18 @@
   background-image: url('/cacomixtle-looking.png');
   background-size: 600% 270.27027%;
   background-position: 18.4% 42.857143%;
+  clip-path: polygon(
+    5% 0,
+    95% 0,
+    100% 45%,
+    95% 70%,
+    80% 85%,
+    65% 95%,
+    35% 95%,
+    20% 85%,
+    5% 70%,
+    0 40%
+  );
 }
 .ending-mascot-waiting[data-look='left'] .ending-gaze-head,
 .ending-mascot-waiting[data-look='right'] .ending-gaze-head {
@@ -304,8 +317,11 @@
     transform: translate(var(--start-x), var(--start-y));
   }
   61.538462%,
-  100% {
+  84.615385% {
     transform: translate(var(--deposit-x), var(--deposit-y));
+  }
+  100% {
+    transform: translate(var(--waiting-x), var(--waiting-y));
   }
 }
 @keyframes ending-acorn-drop {
@@ -376,7 +392,7 @@
 }
 @keyframes ending-choice-journey {
   from {
-    transform: translate(var(--deposit-x), var(--deposit-y));
+    transform: translate(var(--waiting-x), var(--waiting-y));
     opacity: 1;
   }
   55% {
@@ -461,7 +477,7 @@
 
 @keyframes ending-cave-journey {
   from {
-    transform: translate(var(--deposit-x), var(--deposit-y));
+    transform: translate(var(--waiting-x), var(--waiting-y));
     opacity: 1;
   }
   33.333333%,

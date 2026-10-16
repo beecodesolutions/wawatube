@@ -21,7 +21,12 @@ import './session-acorns.css';
 type Choice = 'continue' | 'finish';
 type Phase = 'delivery' | 'waiting' | 'focusing' | 'entering' | 'finished';
 type Point = { left: number; top: number };
-type Positions = { start: Point; deposit: Point; acornScale: number };
+type Positions = {
+  start: Point;
+  deposit: Point;
+  waiting: Point;
+  acornScale: number;
+};
 type FocusLayout = {
   left: number;
   top: number;
@@ -92,6 +97,16 @@ export function ChildEndingScene({
       setPositions({
         start: { left: window.innerWidth + size, top: deposit.top },
         deposit,
+        waiting: {
+          // Leave 16px beyond the acorn before the waiting sprite's tail.
+          left:
+            slot.left +
+            slot.width / 2 +
+            (acornSize * 126) / 151 / 2 +
+            16 -
+            size * (46 / 724),
+          top: deposit.top,
+        },
         acornScale: (size * 151) / (627 * acornSize),
       });
     };
@@ -220,6 +235,8 @@ export function ChildEndingScene({
     '--start-y': `${positions?.start.top ?? 0}px`,
     '--deposit-x': `${positions?.deposit.left ?? 0}px`,
     '--deposit-y': `${positions?.deposit.top ?? 0}px`,
+    '--waiting-x': `${positions?.waiting.left ?? 0}px`,
+    '--waiting-y': `${positions?.waiting.top ?? 0}px`,
     '--target-x': `${destination?.target.left ?? positions?.deposit.left ?? 0}px`,
     '--target-y': `${destination?.target.top ?? positions?.deposit.top ?? 0}px`,
     '--approach-y': `${(destination?.target.top ?? 0) + (choice === 'finish' ? 42 : 20)}px`,

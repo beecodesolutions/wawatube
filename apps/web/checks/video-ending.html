@@ -288,13 +288,21 @@
             assert(
               Math.abs(
                 actorBounds.left -
-                  parseFloat(actorStyle.getPropertyValue('--deposit-x')),
+                  parseFloat(actorStyle.getPropertyValue('--waiting-x')),
               ) < 2 &&
                 Math.abs(
                   actorBounds.top -
-                    parseFloat(actorStyle.getPropertyValue('--deposit-y')),
+                    parseFloat(actorStyle.getPropertyValue('--waiting-y')),
                 ) < 2,
-              'Mascot stays at its delivery position above the title',
+              'Mascot settles beside the acorns above the title',
+            );
+            const nut = acorns()
+              .lastElementChild.querySelector('.acorn-texture')
+              .getBoundingClientRect();
+            assert(
+              actorBounds.left + (actorBounds.width * 46) / 724 - nut.right >=
+                15 && actorBounds.right <= innerWidth,
+              'Waiting mascot leaves a visible gap and stays inside the viewport',
             );
             if (document.getElementById('reduced').checked)
               assert(
