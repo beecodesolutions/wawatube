@@ -11,6 +11,7 @@ import Fastify, {
 import type {
   CategoryInput,
   ImportConfirmation,
+  LegoImportItem,
   MediaUpdate,
   PlaybackTelemetry,
 } from '@wawatube/shared';
@@ -31,6 +32,9 @@ import {
   telemetryBody,
   legoIdParams,
   legoProgressBody,
+  legoSettingsBody,
+  legoScanBody,
+  legoImportBody,
 } from './http/schemas.js';
 import { LibraryService, importDto, sourceType } from './library/service.js';
 import { ImportService } from './imports/service.js';
@@ -423,6 +427,20 @@ export function createApp(options: AppOptions): FastifyInstance {
     );
     admin.post('/api/admin/playlist-import/refresh-all', () =>
       playlistImports.refreshAll(),
+    );
+    admin.get('/api/admin/lego/settings', () => lego.settings());
+    admin.put<{ Body: { inbox: string } }>(
+      '/api/admin/lego/settings',
+      { schema: legoSettingsBody },
+      (request) => lego.setInbox(request.body.inbox),
+    );
+    admin.post('/api/admin/lego/scan', { schema: legoScanBody }, () =>
+      lego.scan(),
+    );
+    admin.post<{ Body: { items: LegoImportItem[] } }>(
+      '/api/admin/lego/import',
+      { schema: legoImportBody },
+      (request) => lego.import(request.body.items),
     );
   });
   return app;

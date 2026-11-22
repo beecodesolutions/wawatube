@@ -110,7 +110,9 @@ La aprobación se valida también en URLs directas, miniaturas y cada nueva peti
 
 ## Agregar construcciones LEGO
 
-Copiá un PDF por modelo en `LEGO_MEDIA_ROOT` (por defecto, `media/lego/`). Usá el número del set original y el nombre que querés mostrar para cada construcción:
+En el área parental, abrí **LEGO**, elegí la carpeta del servidor donde descargás los manuales y guardala. **Buscar PDFs nuevos** prepara una vista previa. Revisá el nombre y el set de cada construcción, marcá los archivos que querés incorporar y confirmá la importación. Los originales quedan en la carpeta de descargas.
+
+También podés copiar un PDF por modelo en `LEGO_MEDIA_ROOT` (por defecto, `media/lego/`). Usá el número del set original y el nombre que querés mostrar para cada construcción:
 
 ```text
 media/lego/

@@ -21,6 +21,7 @@ import { AdminLibrary } from './ParentLibrary';
 import { AdminCategories } from './ParentCategories';
 import { ParentLogin } from './ParentLogin';
 import { AdminTelemetry } from './ParentTelemetry';
+import { AdminLego } from './ParentLego';
 
 export function ParentApp() {
   const { t } = useTranslation();
@@ -98,6 +99,7 @@ export function ParentApp() {
             </Route>
             <Route path="categories" element={<AdminCategories />} />
             <Route path="telemetry" element={<AdminTelemetry />} />
+            <Route path="lego" element={<AdminLego />} />
             <Route path="*" element={<Navigate to="library" replace />} />
           </Routes>
         </ParentFrame>
@@ -145,8 +147,9 @@ function ParentFrame({
           <Box
             sx={{
               display: 'flex',
+              flexWrap: 'wrap',
               width: { xs: '100%', sm: 'auto' },
-              justifyContent: { xs: 'space-between', sm: 'initial' },
+              justifyContent: { xs: 'flex-start', sm: 'initial' },
               gap: 1,
               order: { xs: 2, sm: 1 },
             }}
@@ -159,6 +162,9 @@ function ParentFrame({
             </Button>
             <Button component={NavLink} to="telemetry" color="inherit">
               {t('nav.telemetry')}
+            </Button>
+            <Button component={NavLink} to="lego" color="inherit">
+              {t('nav.lego')}
             </Button>
             <Button
               onClick={() => {

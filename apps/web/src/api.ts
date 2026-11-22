@@ -14,6 +14,9 @@ import type {
   TelemetryReport,
   LegoMoc,
   LegoSet,
+  LegoAdminSettings,
+  LegoCandidate,
+  LegoImportItem,
 } from '@wawatube/shared';
 
 export type PlaybackTelemetryPayload = PlaybackTelemetry & {
@@ -198,6 +201,20 @@ export const api = {
   legoMocs: (setId: string) =>
     request<{ setName: string; mocs: LegoMoc[] }>(
       `/api/lego/sets/${encodeURIComponent(setId)}/mocs`,
+    ),
+  legoAdminSettings: () =>
+    request<LegoAdminSettings>('/api/admin/lego/settings'),
+  updateLegoAdminSettings: (inbox: string) =>
+    request<void>('/api/admin/lego/settings', {
+      method: 'PUT',
+      body: JSON.stringify({ inbox }),
+    }),
+  scanLego: () =>
+    request<{ candidates: LegoCandidate[] }>('/api/admin/lego/scan', json({})),
+  importLego: (items: LegoImportItem[]) =>
+    request<{ imported: number; skipped: number }>(
+      '/api/admin/lego/import',
+      json({ items }),
     ),
   legoProgress: (mocId: string, page: number) =>
     request<void>(`/api/lego/mocs/${encodeURIComponent(mocId)}/progress`, {

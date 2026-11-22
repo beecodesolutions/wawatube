@@ -1,4 +1,5 @@
-import { resolve, dirname } from 'node:path';
+import { homedir } from 'node:os';
+import { isAbsolute, join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
 
@@ -16,6 +17,7 @@ export interface AppConfig {
   skipTelemetry: boolean;
   ffprobePath: string;
   legoMediaRoot: string;
+  legoInbox: string;
   legoCacheRoot: string;
   rebrickableApiKey: string;
   pdftoppmPath: string;
@@ -40,6 +42,12 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     projectRoot,
     value('LEGO_MEDIA_ROOT', 'media/lego'),
   );
+  const legoInboxValue = value(
+    'LEGO_INBOX',
+    join(homedir(), 'Desktop/tiradero/lego'),
+  );
+  if (!isAbsolute(legoInboxValue))
+    throw new Error('LEGO_INBOX must be an absolute path');
   const port = Number(value('PORT', '3000'));
   const sessionHours = Number(value('SESSION_HOURS', '24'));
   if (!Number.isInteger(port) || port < 1 || port > 65535)
@@ -82,6 +90,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       value('DEV_SKIP_TELEMETRY').toLowerCase() === 'true',
     ffprobePath: value('FFPROBE_PATH', 'ffprobe'),
     legoMediaRoot,
+    legoInbox: resolve(legoInboxValue),
     legoCacheRoot: resolve(projectRoot, '.cache/lego'),
     rebrickableApiKey: value('REBRICKABLE_API_KEY'),
     pdftoppmPath: value('PDFTOPPM_PATH', 'pdftoppm'),

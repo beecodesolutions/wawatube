@@ -1,6 +1,10 @@
 import type { FastifyError, FastifyInstance } from 'fastify';
 import { ProviderError } from '../providers/errors.js';
-import { LegoNotFoundError } from '../lego/service.js';
+import {
+  LegoInboxUnavailableError,
+  LegoNotFoundError,
+  LegoPathError,
+} from '../lego/service.js';
 
 export class ApiFailure extends Error {
   constructor(
@@ -27,6 +31,10 @@ export function registerErrorHandler(app: FastifyInstance): void {
     }
     if (error instanceof LegoNotFoundError)
       return reply.code(404).send({ code: 'LEGO_NOT_FOUND' });
+    if (error instanceof LegoPathError)
+      return reply.code(400).send({ code: 'INVALID_LEGO_PATH' });
+    if (error instanceof LegoInboxUnavailableError)
+      return reply.code(400).send({ code: 'LEGO_INBOX_UNAVAILABLE' });
     if (error.validation)
       return reply.code(400).send({ code: 'INVALID_REQUEST' });
     if (error.statusCode === 416) {

@@ -28,6 +28,40 @@ export const legoProgressBody = {
     properties: { page: { type: 'integer', minimum: 1, maximum: 100000 } },
   },
 } as const;
+export const legoSettingsBody = {
+  body: {
+    type: 'object',
+    required: ['inbox'],
+    additionalProperties: false,
+    properties: { inbox: { type: 'string', minLength: 1, maxLength: 4096 } },
+  },
+} as const;
+export const legoScanBody = {
+  body: { type: 'object', additionalProperties: false },
+} as const;
+export const legoImportBody = {
+  body: {
+    type: 'object',
+    required: ['items'],
+    additionalProperties: false,
+    properties: {
+      items: {
+        type: 'array',
+        maxItems: 500,
+        items: {
+          type: 'object',
+          required: ['file', 'name', 'setId'],
+          additionalProperties: false,
+          properties: {
+            file: { type: 'string', minLength: 1, maxLength: 4096 },
+            name: { type: 'string', minLength: 1, maxLength: 200 },
+            setId: { type: 'string', minLength: 1, maxLength: 200 },
+          },
+        },
+      },
+    },
+  },
+} as const;
 const categoryIds = {
   type: 'array',
   uniqueItems: true,

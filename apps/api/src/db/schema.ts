@@ -213,6 +213,14 @@ export const legoMocProgress = pgTable(
   (table) => [check('lego_moc_progress_page_check', sql`${table.page} >= 1`)],
 );
 
+export const legoSettings = pgTable('lego_settings', {
+  id: integer('id').primaryKey(),
+  inbox: text('inbox').notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
 export type CategoryRow = typeof categories.$inferSelect;
 export type MediaRow = typeof mediaItems.$inferSelect;
 export type ImportRow = typeof imports.$inferSelect;

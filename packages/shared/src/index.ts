@@ -148,3 +148,23 @@ export interface LegoMoc {
   pdfUrl: string;
   page: number;
 }
+
+export interface LegoAdminSettings {
+  inbox: string;
+  catalog: string;
+  apiKeyConfigured: boolean;
+  sets: { id: string; name: string }[];
+}
+
+export interface LegoCandidate {
+  file: string;
+  mocId: string | null;
+  name: string;
+  setId: string | null;
+}
+
+export interface LegoImportItem {
+  file: string;
+  name: string;
+  setId: string;
+}
