@@ -5,7 +5,13 @@ import {
   ChildCategoryRoute,
   ChildHome,
   ChildPlayerRoute,
+  ChildVideosHome,
 } from './features/child/ChildRoutes';
+import {
+  LegoMocsRoute,
+  LegoReaderRoute,
+  LegoSetsRoute,
+} from './features/child/LegoRoutes';
 import { ParentApp } from './features/parent/ParentRoutes';
 import { childTheme, parentTheme } from './theme';
 import { api } from './api';
@@ -29,6 +35,7 @@ export function App() {
   useEffect(() => {
     if (
       !pathname.startsWith('/watch') &&
+      !/^\/lego\/[^/]+\/[^/]+$/.test(pathname) &&
       document.fullscreenElement === document.documentElement
     ) {
       void document.exitFullscreen().catch(() => {});
@@ -64,6 +71,10 @@ export function App() {
             />
           ) : null}
           <Route path="/" element={<ChildHome />} />
+          <Route path="/videos" element={<ChildVideosHome />} />
+          <Route path="/lego" element={<LegoSetsRoute />} />
+          <Route path="/lego/:setId" element={<LegoMocsRoute />} />
+          <Route path="/lego/:setId/:mocId" element={<LegoReaderRoute />} />
           <Route
             path="/category/:categoryId"
             element={<ChildCategoryRoute />}
@@ -73,7 +84,10 @@ export function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Box>
-      {!parent && !(import.meta.env.DEV && pathname === '/dev/cacomixtle') ? (
+      {!parent &&
+      pathname !== '/' &&
+      !pathname.startsWith('/lego') &&
+      !(import.meta.env.DEV && pathname === '/dev/cacomixtle') ? (
         <CacomixtleLayer />
       ) : null}
     </ThemeProvider>

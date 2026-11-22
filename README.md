@@ -1,13 +1,13 @@
 # 🌈 Wawatube
 
-> **¿Qué querés mirar?** Una biblioteca familiar autohospedada, tranquila y bajo control de casa.
+> **¿Qué querés hacer?** Una biblioteca familiar autohospedada, tranquila y bajo control de casa.
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=20232a)](https://react.dev/)
 [![Node.js](https://img.shields.io/badge/Node.js-24-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![Self-hosted](https://img.shields.io/badge/self--hosted-sí-2ea44f)](#producción-en-otra-pc)
 
-Wawatube separa la experiencia infantil del área de adultos: los padres eligen y organizan; los niños ven únicamente videos aprobados y disponibles. Los videos de YouTube se descargan con Tube Archivist y los archivos familiares se registran desde una carpeta local. Ambos orígenes comparten categorías, metadata y reproductor nativo.
+Wawatube reúne dos mini apps familiares, Video y LEGO. La biblioteca de video separa la experiencia infantil del área de adultos: los padres eligen y organizan; los niños ven únicamente videos aprobados y disponibles. Los videos de YouTube se descargan con Tube Archivist y los archivos familiares se registran desde una carpeta local. Ambos orígenes comparten categorías, metadata y reproductor nativo.
 
 ## Índice
 
@@ -17,13 +17,14 @@ Wawatube separa la experiencia infantil del área de adultos: los padres eligen 
 - [Instalación y desarrollo](#instalación-y-desarrollo)
 - [Configurar Tube Archivist](#configurar-tube-archivist)
 - [Usar la biblioteca](#usar-la-biblioteca)
+- [Agregar construcciones LEGO](#agregar-construcciones-lego)
 - [Producción en otra PC](#producción-en-otra-pc)
 - [Backup y restauración](#backup-y-restauración)
 - [Comprobaciones](#comprobaciones)
 
 ## Qué incluye
 
-- Inicio infantil con categorías, tarjetas y reproductor nativo sin recomendaciones ni navegación externa.
+- Inicio infantil con acceso visual a Video y LEGO. Video conserva sus categorías y reproductor. LEGO reúne las instrucciones de las construcciones alternativas de cada set.
 - Área de adultos protegida por PIN para categorías, visibilidad, videos locales e importaciones de YouTube.
 - Estados de vista previa, descarga, disponibilidad y error para que cada importación sea entendible.
 - Tema claro/oscuro según el dispositivo, con elección manual persistida.
@@ -88,7 +89,7 @@ La integración está basada en Tube Archivist **v0.5.12**, Elasticsearch **8.19
 
 ## Usar la biblioteca
 
-- Niños: `/`. Categoría → video → reproductor nativo, sin contenido recomendado ni navegación externa.
+- Niños: `/`. Elegir Video para abrir las categorías o LEGO para elegir un set y una construcción.
 - Padres: `/parent`. PIN → biblioteca, categorías e importaciones. No hay botón administrativo en la UI infantil.
 - Imagen de categoría: usa el thumbnail del primer video visible y disponible según el orden del listado. En **Categorías → Editar** se puede elegir otro video de esa categoría o volver a **Automático**. Si el video elegido deja de estar disponible, visible o asignado, se vuelve al primero; sin thumbnail se conserva el emoji.
 - Portadas de YouTube: si TubeArchivist devuelve su imagen genérica o falla, Wawatube recupera la portada desde `i.ytimg.com` y conserva una copia en `.cache/thumbnails/`. La interfaz infantil reintenta fallos de carga a los 1, 3 y 10 segundos; no necesita intervención del niño. La detección de imagen genérica corresponde a TubeArchivist v0.5.12.
@@ -106,6 +107,25 @@ La vista **Uso** de la zona de adultos registra segundos de reproducción por d�
 Miniatura local opcional: mismo nombre con extensión `.jpg` o `.png`, por ejemplo `viaje.mp4` + `viaje.jpg`. Si falta, FFmpeg guarda una captura del primer fotograma en `.wawatube-thumbnails/` dentro de `LOCAL_MEDIA_ROOT`; esa carpeta debe permitir escritura. ffprobe extrae metadata; no hay transcodificación del video. Un contenedor admitido no garantiza codecs reproducibles: MP4 H.264/AAC suele ser la opción más interoperable. Si el navegador rechaza un archivo, convertirlo externamente.
 
 La aprobación se valida también en URLs directas, miniaturas y cada nueva petición de reproducción. Ocultar un video no puede retirar bytes que el navegador ya descargó/bufferizó.
+
+## Agregar construcciones LEGO
+
+Copiá un PDF por modelo en `LEGO_MEDIA_ROOT` (por defecto, `media/lego/`). Usá el número del set original y el nombre que querés mostrar para cada construcción:
+
+```text
+media/lego/
+  31129/
+    portada.jpg
+    Zorro/
+      instrucciones.pdf
+    Búho/
+      portada.png
+      buho.pdf
+```
+
+Al volver al catálogo aparecen las carpetas nuevas. Las portadas locales son opcionales. Para obtener la foto del set automáticamente, generá una clave en tu cuenta de [Rebrickable](https://rebrickable.com/api/) y configurá `REBRICKABLE_API_KEY` en el servidor. Las fotos descargadas quedan en `.cache/lego/`. Para generar portadas de modelos a partir de la primera página, instalá Poppler (`sudo apt install poppler-utils` en Debian/Ubuntu). Al actualizar una instalación existente, ejecutá `pnpm db:migrate` para habilitar el guardado de páginas. El backup de PostgreSQL incluye el progreso. Respaldá los PDFs y portadas originales copiando también la carpeta LEGO.
+
+El lector recuerda la página de cada construcción en el servidor. Mantené los nombres de las carpetas para conservar esa asociación. Usá las flechas para recorrer el PDF, hacé clic sobre la hoja para avanzar o elegí el botón de reinicio para volver a la primera página.
 
 ## Producción en otra PC
 

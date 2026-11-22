@@ -201,6 +201,18 @@ export const videoViews = pgTable(
   ],
 );
 
+export const legoMocProgress = pgTable(
+  'lego_moc_progress',
+  {
+    mocId: text('moc_id').primaryKey(),
+    page: integer('page').default(1).notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [check('lego_moc_progress_page_check', sql`${table.page} >= 1`)],
+);
+
 export type CategoryRow = typeof categories.$inferSelect;
 export type MediaRow = typeof mediaItems.$inferSelect;
 export type ImportRow = typeof imports.$inferSelect;

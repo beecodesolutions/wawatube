@@ -7,7 +7,7 @@ import {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
-import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
+import { BackButton } from './BackButton';
 import {
   MediaControlBar,
   MediaController,
@@ -15,13 +15,13 @@ import {
 } from 'media-chrome/react';
 import {
   Box,
-  Button,
   Card,
   CardActionArea,
   CardContent,
   Container,
   Dialog,
   IconButton,
+  LinearProgress,
   SvgIcon,
   Stack,
   Typography,
@@ -48,31 +48,6 @@ import {
 import { ChildEndingScene } from './ChildEndingScene';
 
 export const THUMBNAIL_RETRY_DELAYS_MS = [1000, 3000, 10000] as const;
-
-function BackButton({
-  to = '/',
-  onExit,
-}: {
-  to?: string;
-  onExit?: () => void;
-}) {
-  const { t } = useTranslation();
-  return (
-    <Button
-      component={Link}
-      to={to}
-      onClick={() => {
-        onExit?.();
-      }}
-      variant="contained"
-      size="large"
-      startIcon={<ArrowBackRoundedIcon sx={{ fontSize: '2rem' }} />}
-      sx={{ mb: 4, minHeight: 64, px: 3, fontSize: '1.25rem', borderRadius: 3 }}
-    >
-      {t('nav.back')}
-    </Button>
-  );
-}
 
 export function thumbnailRetryUrl(url: string, retry: number): string {
   if (url.startsWith('data:')) return url;
@@ -117,6 +92,84 @@ function useThumbnailRetry(url: string | null) {
 }
 
 export function ChildHome() {
+  return (
+    <ChildFrame>
+      <Box
+        sx={{
+          position: 'fixed',
+          bottom: 'max(12px, env(safe-area-inset-bottom))',
+          left: 12,
+          zIndex: 2,
+        }}
+      >
+        <ChildBrand compact />
+      </Box>
+      <Container
+        maxWidth="md"
+        sx={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          py: { xs: 4, md: 8 },
+        }}
+      >
+        <Box
+          component="nav"
+          aria-label="Elegir aplicación"
+          sx={{
+            display: 'grid',
+            gridTemplateColumns:
+              'repeat(auto-fit, minmax(min(100%, 280px), 1fr))',
+            gap: { xs: 2, sm: 3 },
+          }}
+        >
+          {[
+            {
+              name: 'LEGO',
+              to: '/lego',
+              image: '/lego-brick.webp',
+              background: '#f4ddb4',
+            },
+            {
+              name: 'Videos',
+              to: '/videos',
+              image: '/video-tv.svg',
+              background: '#dce9de',
+            },
+          ].map(({ name, to, image, background }) => (
+            <Card key={to}>
+              <CardActionArea
+                component={Link}
+                to={to}
+                aria-label={name}
+                sx={{
+                  display: 'grid',
+                  placeItems: 'center',
+                  height: 'clamp(160px, min(32vh, 64vw), 290px)',
+                  backgroundColor: background,
+                  '&.Mui-focusVisible': {
+                    outline: '4px solid #235640',
+                    outlineOffset: -5,
+                  },
+                }}
+              >
+                <Box
+                  component="img"
+                  src={image}
+                  alt=""
+                  sx={{ width: '76%', height: '80%', objectFit: 'contain' }}
+                />
+              </CardActionArea>
+            </Card>
+          ))}
+        </Box>
+      </Container>
+    </ChildFrame>
+  );
+}
+
+export function ChildVideosHome() {
   const { t } = useTranslation();
   const [categories, setCategories] = useState<Category[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -163,10 +216,11 @@ export function ChildHome() {
           flex: 1,
           display: 'flex',
           flexDirection: 'column',
-          justifyContent: 'center',
+          justifyContent: 'flex-start',
           py: { xs: 3, md: 5 },
         }}
       >
+        <BackButton to="/" />
         {error ? (
           <ErrorState message={error} retry={load} childFriendly />
         ) : categories === null ? (
@@ -195,6 +249,26 @@ export function ChildHome() {
             ))}
           </Box>
         )}
+        <Stack
+          direction="row"
+          alignItems="center"
+          spacing={1.5}
+          sx={{ width: '100%', maxWidth: 1200, mx: 'auto', mt: 3 }}
+        >
+          <Box
+            component="img"
+            src="/cacomixtle-progress.webp"
+            alt=""
+            aria-hidden
+            sx={{ width: 56, height: 40, objectFit: 'contain' }}
+          />
+          <LinearProgress
+            variant="determinate"
+            value={0}
+            aria-label="Progreso del cacomixtle"
+            sx={{ flex: 1, height: 10, borderRadius: 5 }}
+          />
+        </Stack>
       </Container>
     </ChildFrame>
   );
@@ -463,7 +537,7 @@ export function ChildPlayer() {
   } | null;
   const categoryId = playerState?.categoryId;
   const backTo =
-    typeof categoryId === 'string' ? `/category/${categoryId}` : '/';
+    typeof categoryId === 'string' ? `/category/${categoryId}` : '/videos';
   const playerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const lastTap = useRef<{ at: number; side: 'left' | 'right' } | null>(null);
@@ -956,7 +1030,7 @@ export function ChildPlayer() {
                     key={`${sessionKey}-${depositKey}`}
                     count={completedVideos}
                     depositKey={depositKey}
-                    onContinue={() => navigate('/', { replace: true })}
+                    onContinue={() => navigate('/videos', { replace: true })}
                     onFinish={() => {
                       clearTelemetrySession();
                     }}

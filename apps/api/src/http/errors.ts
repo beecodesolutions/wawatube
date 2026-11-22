@@ -1,5 +1,6 @@
 import type { FastifyError, FastifyInstance } from 'fastify';
 import { ProviderError } from '../providers/errors.js';
+import { LegoNotFoundError } from '../lego/service.js';
 
 export class ApiFailure extends Error {
   constructor(
@@ -24,6 +25,8 @@ export function registerErrorHandler(app: FastifyInstance): void {
         return reply.code(404).send({ code: error.code });
       return reply.code(502).send({ code: 'UPSTREAM_UNAVAILABLE' });
     }
+    if (error instanceof LegoNotFoundError)
+      return reply.code(404).send({ code: 'LEGO_NOT_FOUND' });
     if (error.validation)
       return reply.code(400).send({ code: 'INVALID_REQUEST' });
     if (error.statusCode === 416) {

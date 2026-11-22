@@ -12,6 +12,8 @@ import type {
   PlaylistImportRequest,
   PlaybackTelemetry,
   TelemetryReport,
+  LegoMoc,
+  LegoSet,
 } from '@wawatube/shared';
 
 export type PlaybackTelemetryPayload = PlaybackTelemetry & {
@@ -192,6 +194,17 @@ export const api = {
       '/api/admin/import/local',
       json({ sourceId, categoryIds, visible }),
     ),
+  legoSets: () => request<{ sets: LegoSet[] }>('/api/lego/sets'),
+  legoMocs: (setId: string) =>
+    request<{ setName: string; mocs: LegoMoc[] }>(
+      `/api/lego/sets/${encodeURIComponent(setId)}/mocs`,
+    ),
+  legoProgress: (mocId: string, page: number) =>
+    request<void>(`/api/lego/mocs/${encodeURIComponent(mocId)}/progress`, {
+      method: 'PUT',
+      keepalive: true,
+      body: JSON.stringify({ page }),
+    }),
 };
 
 export function errorText(

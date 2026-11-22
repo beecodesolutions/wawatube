@@ -27,7 +27,7 @@ export function CacomixtleLayer({
   const systemReducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
   const reducedMotion = systemReducedMotion || motionDisabled;
   const watchPath = pathname.startsWith('/watch/') ? pathname : null;
-  const homePath = pathname === '/' || pathname === '/dev/cacomixtle';
+  const homePath = pathname === '/videos' || pathname === '/dev/cacomixtle';
   const [state, setState] = useState<MascotState>('hidden');
   const [rockSide, setRockSide] = useState<RockSceneSide>('left');
   const [rockPresent, setRockPresent] = useState(false);

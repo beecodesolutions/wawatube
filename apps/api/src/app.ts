@@ -29,6 +29,8 @@ import {
   playlistMonitorBody,
   confirmationBody,
   telemetryBody,
+  legoIdParams,
+  legoProgressBody,
 } from './http/schemas.js';
 import { LibraryService, importDto, sourceType } from './library/service.js';
 import { ImportService } from './imports/service.js';
@@ -40,6 +42,7 @@ import {
   youtubePlaylistIdFromUrl as providerYoutubePlaylistIdFromUrl,
 } from './providers/youtube-media-provider.js';
 import { TelemetryService } from './telemetry/service.js';
+import { LegoService } from './lego/service.js';
 
 interface AppOptions {
   db: Database;
@@ -52,14 +55,15 @@ interface AppOptions {
 async function safeFile(
   root: string,
   resource: Extract<MediaResource, { kind: 'file' }>,
+  errorCode = 'MEDIA_NOT_AVAILABLE',
 ): Promise<{ root: string; name: string }> {
   const base = await realpath(root).catch(() => {
-    throw new ApiFailure(404, 'MEDIA_NOT_AVAILABLE');
+    throw new ApiFailure(404, errorCode);
   });
   const path = await realpath(
     resolve(resource.root, resource.relativePath),
   ).catch(() => {
-    throw new ApiFailure(404, 'MEDIA_NOT_AVAILABLE');
+    throw new ApiFailure(404, errorCode);
   });
   const name = relative(base, path);
   if (
@@ -69,7 +73,7 @@ async function safeFile(
     isAbsolute(name) ||
     !(await stat(path)).isFile()
   )
-    throw new ApiFailure(404, 'MEDIA_NOT_AVAILABLE');
+    throw new ApiFailure(404, errorCode);
   return { root: base, name };
 }
 
@@ -127,6 +131,23 @@ async function sendResource(
   return reply.send(stream);
 }
 
+async function sendLegoAsset(
+  reply: FastifyReply,
+  asset: { root: string; path: string; contentType: string } | null,
+): Promise<FastifyReply> {
+  if (!asset) throw new ApiFailure(404, 'LEGO_NOT_FOUND');
+  const { root, name } = await safeFile(
+    asset.root,
+    {
+      kind: 'file',
+      root: asset.root,
+      relativePath: relative(asset.root, asset.path),
+    },
+    'LEGO_NOT_FOUND',
+  );
+  return reply.type(asset.contentType).sendFile(name, root);
+}
+
 export function createApp(options: AppOptions): FastifyInstance {
   const { db, config, media } = options;
   const library = new LibraryService(db, media);
@@ -134,6 +155,7 @@ export function createApp(options: AppOptions): FastifyInstance {
   const playlistImports =
     options.playlistImports ?? new PlaylistImportService(db, media, imports);
   const telemetry = new TelemetryService(db);
+  const lego = new LegoService(db, config);
   const app = Fastify({
     logger: true,
     ajv: { customOptions: { coerceTypes: false } },
@@ -153,6 +175,36 @@ export function createApp(options: AppOptions): FastifyInstance {
   registerErrorHandler(app);
   registerAuthRoutes(app, db, config);
   app.get('/api/health', async () => ({ status: 'ok' }));
+
+  app.get('/api/lego/sets', () => lego.sets());
+  app.get<{ Params: { id: string } }>(
+    '/api/lego/sets/:id/mocs',
+    { schema: legoIdParams },
+    (request) => lego.mocs(request.params.id),
+  );
+  app.get<{ Params: { id: string } }>(
+    '/api/lego/sets/:id/cover',
+    { schema: legoIdParams },
+    async (request, reply) =>
+      sendLegoAsset(reply, await lego.setCover(request.params.id)),
+  );
+  app.get<{ Params: { id: string } }>(
+    '/api/lego/mocs/:id/cover',
+    { schema: legoIdParams },
+    async (request, reply) =>
+      sendLegoAsset(reply, await lego.mocCover(request.params.id)),
+  );
+  app.get<{ Params: { id: string } }>(
+    '/api/lego/mocs/:id/pdf',
+    { schema: legoIdParams },
+    async (request, reply) =>
+      sendLegoAsset(reply, await lego.mocPdf(request.params.id)),
+  );
+  app.put<{ Params: { id: string }; Body: { page: number } }>(
+    '/api/lego/mocs/:id/progress',
+    { schema: legoProgressBody },
+    (request) => lego.setProgress(request.params.id, request.body.page),
+  );
 
   app.get('/api/kids/categories', () => library.categories(false));
   app.get<{ Params: { id: string } }>(

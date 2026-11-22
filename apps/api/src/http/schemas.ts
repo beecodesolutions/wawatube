@@ -10,6 +10,24 @@ export const idParams = {
     properties: { id: { type: 'string', pattern: idPattern } },
   },
 } as const;
+const legoId = { type: 'string', pattern: '^[A-Za-z0-9_-]+$' } as const;
+export const legoIdParams = {
+  params: {
+    type: 'object',
+    required: ['id'],
+    additionalProperties: false,
+    properties: { id: legoId },
+  },
+} as const;
+export const legoProgressBody = {
+  ...legoIdParams,
+  body: {
+    type: 'object',
+    required: ['page'],
+    additionalProperties: false,
+    properties: { page: { type: 'integer', minimum: 1, maximum: 100000 } },
+  },
+} as const;
 const categoryIds = {
   type: 'array',
   uniqueItems: true,

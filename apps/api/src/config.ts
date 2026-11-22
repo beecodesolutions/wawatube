@@ -15,6 +15,10 @@ export interface AppConfig {
   skipParentPin: boolean;
   skipTelemetry: boolean;
   ffprobePath: string;
+  legoMediaRoot: string;
+  legoCacheRoot: string;
+  rebrickableApiKey: string;
+  pdftoppmPath: string;
 }
 
 const projectRoot = resolve(
@@ -31,6 +35,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const localMediaRoot = resolve(
     projectRoot,
     value('LOCAL_MEDIA_ROOT', 'media/local'),
+  );
+  const legoMediaRoot = resolve(
+    projectRoot,
+    value('LEGO_MEDIA_ROOT', 'media/lego'),
   );
   const port = Number(value('PORT', '3000'));
   const sessionHours = Number(value('SESSION_HOURS', '24'));
@@ -73,5 +81,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       value('NODE_ENV') === 'development' &&
       value('DEV_SKIP_TELEMETRY').toLowerCase() === 'true',
     ffprobePath: value('FFPROBE_PATH', 'ffprobe'),
+    legoMediaRoot,
+    legoCacheRoot: resolve(projectRoot, '.cache/lego'),
+    rebrickableApiKey: value('REBRICKABLE_API_KEY'),
+    pdftoppmPath: value('PDFTOPPM_PATH', 'pdftoppm'),
   };
 }

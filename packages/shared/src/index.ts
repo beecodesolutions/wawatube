@@ -134,3 +134,17 @@ export interface ImportConfirmation {
 export interface ApiError {
   code: string;
 }
+
+export interface LegoSet {
+  id: string;
+  name: string;
+  coverUrl: string | null;
+}
+
+export interface LegoMoc {
+  id: string;
+  name: string;
+  coverUrl: string | null;
+  pdfUrl: string;
+  page: number;
+}
