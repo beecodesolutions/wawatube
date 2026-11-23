@@ -1,6 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
-import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
 import FullscreenRoundedIcon from '@mui/icons-material/FullscreenRounded';
 import { BackButton } from './BackButton';
 import RestartAltRoundedIcon from '@mui/icons-material/RestartAltRounded';
@@ -234,6 +232,7 @@ export function LegoReaderRoute() {
   const [moc, setMoc] = useState<LegoMoc | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
+  const [facingLeft, setFacingLeft] = useState(false);
   const [totalPages, setTotalPages] = useState(0);
   const [expanded, setExpanded] = useState(document.fullscreenElement !== null);
   const [saveError, setSaveError] = useState(false);
@@ -263,6 +262,8 @@ export function LegoReaderRoute() {
       if (!moc || !totalPages || error) return;
       const clamped = Math.max(1, Math.min(totalPages, Math.round(nextPage)));
       if (clamped === latestPageRef.current && !saveError) return;
+      if (clamped !== latestPageRef.current)
+        setFacingLeft(clamped < latestPageRef.current);
       setPage(clamped);
       queueProgress(clamped);
     },
@@ -432,60 +433,13 @@ export function LegoReaderRoute() {
           No pudimos guardar el progreso.
         </Typography>
       ) : null}
-      <Box
-        sx={{
-          flex: 1,
-          minHeight: 0,
-          display: 'grid',
-          position: 'relative',
-          gridTemplateColumns: 'minmax(0, 1fr)',
-          gridTemplateRows: 'minmax(0, 1fr)',
-          '& > button': {
-            position: 'absolute',
-            top: '50%',
-            transform: 'translateY(-50%)',
-            zIndex: 1,
-            '&:first-child': { left: { xs: 12, sm: 20 } },
-            '&:last-child': { right: { xs: 12, sm: 20 } },
-            width: { xs: 48, sm: 60 },
-            height: { xs: 48, sm: 60 },
-            color: 'secondary.contrastText',
-            bgcolor: 'secondary.main',
-            '&:hover': { bgcolor: 'secondary.dark' },
-            '&.Mui-disabled': { color: '#888', bgcolor: '#292929' },
-            '&.Mui-focusVisible': { outline: '3px solid white' },
-          },
-        }}
-      >
-        <IconButton
-          aria-label="Página anterior"
-          disabled={page <= 1 || !totalPages}
-          onClick={() => setReaderPage(page - 1)}
-        >
-          <ArrowBackRoundedIcon fontSize="large" />
-        </IconButton>
-        <Box
-          sx={{
-            minWidth: 0,
-            minHeight: 0,
-            display: 'grid',
-            placeItems: 'center',
-          }}
-        >
-          <PdfPageCanvas
-            pdfUrl={moc.pdfUrl}
-            page={page}
-            onTotalPages={handleTotalPages}
-            onError={handlePdfError}
-          />
-        </Box>
-        <IconButton
-          aria-label="Página siguiente"
-          disabled={page >= totalPages}
-          onClick={() => setReaderPage(page + 1)}
-        >
-          <ArrowForwardRoundedIcon fontSize="large" />
-        </IconButton>
+      <Box sx={{ flex: 1, minHeight: 0 }}>
+        <PdfPageCanvas
+          pdfUrl={moc.pdfUrl}
+          page={page}
+          onTotalPages={handleTotalPages}
+          onError={handlePdfError}
+        />
       </Box>
       <Box
         role="progressbar"
@@ -523,15 +477,19 @@ export function LegoReaderRoute() {
             }}
           />
           <Box
-            component="img"
-            src="/cacomixtle-progress.webp"
-            alt=""
+            aria-hidden="true"
             sx={{
               position: 'absolute',
               left: `clamp(51px, ${totalPages > 1 ? (100 * (page - 1)) / (totalPages - 1) : 100}%, calc(100% - 51px))`,
               bottom: 8,
               width: 102,
-              transform: 'translateX(-50%)',
+              height: 102,
+              backgroundImage: "url('/cacomixtle-sprites.png')",
+              backgroundSize: '400% 300%',
+              backgroundPosition: `${(((page - 1) % 4) * 100) / 3}% 0`,
+              transform: facingLeft
+                ? 'translateX(-50%) scaleX(-1)'
+                : 'translateX(-50%)',
             }}
           />
         </Box>
