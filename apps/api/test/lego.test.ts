@@ -120,3 +120,39 @@ test('uses local cover first and atomically caches mocked Rebrickable image exte
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test('uses a Rebrickable MOC image by PDF identifier and keeps it available offline', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'wawatube-moc-cover-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const directory = join(root, '31146', 'Custom name');
+  const cache = join(root, '.cache');
+  await mkdir(directory, { recursive: true });
+  await writeFile(
+    join(directory, 'MOC-170054_instructions.pdf'),
+    '%PDF-example',
+  );
+  const id = Buffer.from('moc:31146/Custom name').toString('base64url');
+  const png = Buffer.from('\x89PNG\r\n\x1a\n', 'binary');
+  const request = t.mock.method(globalThis, 'fetch', async (url: URL) => {
+    if (url.hostname === 'cdn.rebrickable.com') return new Response(png);
+    assert.match(url.pathname, /31146-1\/alternates\/$/);
+    return Response.json({
+      results: [
+        {
+          set_num: 'MOC-170054',
+          name: 'Example',
+          moc_img_url: 'https://cdn.rebrickable.com/example.png',
+        },
+      ],
+    });
+  });
+  const downloaded = await service(root, cache, 'test-key').mocCover(id);
+  assert.equal(downloaded?.contentType, 'image/png');
+  assert.deepEqual(await readFile(downloaded!.path), png);
+  assert.deepEqual(await service(root, cache).mocCover(id), downloaded);
+  assert.equal(request.mock.callCount(), 2);
+
+  const override = join(directory, 'portada.jpg');
+  await writeFile(override, 'manual cover');
+  assert.equal((await service(root, cache).mocCover(id))?.path, override);
+});

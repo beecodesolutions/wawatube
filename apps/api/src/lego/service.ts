@@ -48,7 +48,15 @@ interface SetEntry {
   cachedCover: string | null;
   mocs: MocEntry[];
 }
+interface Alternate {
+  setId: string;
+  mocId: string;
+  name: string;
+  imageUrl?: string;
+}
+
 interface MocEntry {
+  setId: string;
   id: string;
   name: string;
   path: string;
@@ -459,13 +467,15 @@ export class LegoService {
     return hashes;
   }
 
+  private readonly mocAlternates = new Map<
+    string,
+    { expires: number; entries: Promise<Map<string, Alternate>> }
+  >();
+
   private async alternateMap(
     setIds: string[],
-  ): Promise<Map<string, { setId: string; mocId: string; name: string }>> {
-    const result = new Map<
-      string,
-      { setId: string; mocId: string; name: string }
-    >();
+  ): Promise<Map<string, Alternate>> {
+    const result = new Map<string, Alternate>();
     if (!this.config.rebrickableApiKey) return result;
     for (const setId of setIds) {
       const apiSet = setId.includes('-') ? setId : `${setId}-1`;
@@ -482,6 +492,10 @@ export class LegoService {
             setId,
             mocId: token,
             name: alternate.name.trim() || token,
+            imageUrl:
+              typeof alternate.moc_img_url === 'string'
+                ? alternate.moc_img_url
+                : undefined,
           });
           if (!/^MOC[-_ ]?\d+$/i.test(token)) {
             const base = token.split('-')[0];
@@ -500,7 +514,7 @@ export class LegoService {
   }
 
   private async rebrickablePage(url: string): Promise<{
-    results: { set_num: string; name: string }[];
+    results: { set_num: string; name: string; moc_img_url?: unknown }[];
     next: string | null;
   } | null> {
     try {
@@ -512,6 +526,7 @@ export class LegoService {
         return null;
       const response = await fetch(parsed, {
         headers: { Authorization: `key ${this.config.rebrickableApiKey}` },
+        redirect: 'error',
         signal: AbortSignal.timeout(8_000),
       });
       if (!response.ok) return null;
@@ -561,8 +576,15 @@ export class LegoService {
           contentType: imageType(fetched),
         };
     }
-    const thumbnail =
-      'path' in entry && isPdf(entry.path) ? await this.thumbnail(entry) : null;
+    if (!('setId' in entry)) return null;
+    const remote = await this.rebrickableMocCover(entry);
+    if (remote)
+      return {
+        root: this.config.legoCacheRoot,
+        path: remote,
+        contentType: imageType(remote),
+      };
+    const thumbnail = await this.thumbnail(entry);
     return thumbnail
       ? {
           root: this.config.legoCacheRoot,
@@ -684,6 +706,7 @@ export class LegoService {
       if (pdfs.length !== 1) continue;
       const pdf = join(child, pdfs[0]!.name);
       result.push({
+        setId: basename(path),
         id: opaqueId('moc', join(basename(path), entry.name)),
         name: basename(child),
         path: pdf,
@@ -704,6 +727,31 @@ export class LegoService {
     return null;
   }
 
+  private async rebrickableMocCover(moc: MocEntry): Promise<string | null> {
+    const { mocId } = parseCandidateName(basename(moc.path));
+    if (!mocId) return null;
+    const cached = await this.cachedCover(mocId);
+    if (cached || !this.config.rebrickableApiKey) return cached;
+    let lookup = this.mocAlternates.get(moc.setId);
+    if (!lookup || lookup.expires <= Date.now()) {
+      lookup = {
+        expires: Date.now() + 5 * 60_000,
+        entries: this.alternateMap([moc.setId]),
+      };
+      this.mocAlternates.set(moc.setId, lookup);
+    }
+    const imageUrl = (await lookup.entries).get(mocId.toLowerCase())?.imageUrl;
+    if (!imageUrl) return null;
+    try {
+      const image = new URL(imageUrl);
+      if (image.protocol !== 'https:' || image.host !== 'cdn.rebrickable.com')
+        return null;
+      return await this.cacheRebrickableImage(mocId, image, 'error');
+    } catch {
+      return null;
+    }
+  }
+
   private async fetchRebrickableCover(name: string): Promise<string | null> {
     if (!this.config.rebrickableApiKey) return null;
     const cached = await this.cachedCover(name);
@@ -721,29 +769,38 @@ export class LegoService {
       if (!response.ok) return null;
       const data = (await response.json()) as { set_img_url?: string };
       if (!data.set_img_url) return null;
-      const image = await fetch(data.set_img_url, {
-        signal: AbortSignal.timeout(8_000),
-      });
-      if (!image.ok || !image.body) return null;
-      await mkdir(this.config.legoCacheRoot, { recursive: true });
-      const bytes = Buffer.from(await image.arrayBuffer());
-      const extension = imageExtension(bytes);
-      if (!extension) return null;
-      const stem = name.replace(/[^a-z0-9_-]/gi, '_');
-      const path = join(this.config.legoCacheRoot, `${stem}${extension}`);
-      const temporary = join(
-        this.config.legoCacheRoot,
-        `.${stem}-${randomUUID()}${extension}`,
-      );
-      try {
-        await writeFile(temporary, bytes, { flag: 'wx' });
-        await rename(temporary, path);
-        return await existingFile(path);
-      } finally {
-        await rm(temporary, { force: true }).catch(() => undefined);
-      }
+      return await this.cacheRebrickableImage(name, data.set_img_url);
     } catch {
       return null;
+    }
+  }
+
+  private async cacheRebrickableImage(
+    name: string,
+    url: string | URL,
+    redirect: RequestRedirect = 'follow',
+  ): Promise<string | null> {
+    const image = await fetch(url, {
+      redirect,
+      signal: AbortSignal.timeout(8_000),
+    });
+    if (!image.ok || !image.body) return null;
+    await mkdir(this.config.legoCacheRoot, { recursive: true });
+    const bytes = Buffer.from(await image.arrayBuffer());
+    const extension = imageExtension(bytes);
+    if (!extension) return null;
+    const stem = name.replace(/[^a-z0-9_-]/gi, '_');
+    const path = join(this.config.legoCacheRoot, `${stem}${extension}`);
+    const temporary = join(
+      this.config.legoCacheRoot,
+      `.${stem}-${randomUUID()}${extension}`,
+    );
+    try {
+      await writeFile(temporary, bytes, { flag: 'wx' });
+      await rename(temporary, path);
+      return await existingFile(path);
+    } finally {
+      await rm(temporary, { force: true }).catch(() => undefined);
     }
   }
 }
