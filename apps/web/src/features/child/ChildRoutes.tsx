@@ -7,7 +7,7 @@ import {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { BackButton } from './BackButton';
+import { BackButton, ChildPageHeader } from './BackButton';
 import {
   MediaControlBar,
   MediaController,
@@ -220,7 +220,9 @@ export function ChildVideosHome() {
           py: { xs: 3, md: 5 },
         }}
       >
-        <BackButton to="/" />
+        <Box sx={{ width: '100%', maxWidth: 1200, mx: 'auto' }}>
+          <BackButton to="/" />
+        </Box>
         {error ? (
           <ErrorState message={error} retry={load} childFriendly />
         ) : categories === null ? (
@@ -399,7 +401,9 @@ export function ChildCategory() {
   return (
     <ChildFrame>
       <Container maxWidth="lg" sx={{ py: { xs: 3, md: 5 } }}>
-        <BackButton />
+        <ChildPageHeader
+          title={result && `${result.category.icon} ${result.category.name}`}
+        />
         {error ? (
           <ErrorState message={error} retry={load} childFriendly />
         ) : result === null ? (
@@ -407,14 +411,6 @@ export function ChildCategory() {
         ) : null}
         {result ? (
           <>
-            <Stack spacing={1} sx={{ mb: 4 }}>
-              <Typography
-                variant="h1"
-                sx={{ fontSize: { xs: '2.5rem', md: '4rem' } }}
-              >
-                {result.category.icon} {result.category.name}
-              </Typography>
-            </Stack>
             {result.media.length === 0 ? (
               <EmptyState text={t('child.emptyMedia')} />
             ) : (
@@ -810,7 +806,8 @@ export function ChildPlayer() {
   return (
     <ChildFrame>
       <Container maxWidth="xl" sx={{ py: { xs: 3, md: 5 } }}>
-        <BackButton
+        <ChildPageHeader
+          title={media?.title}
           to={backTo}
           onExit={() => flushTelemetry({ ended: true })}
         />
@@ -821,15 +818,6 @@ export function ChildPlayer() {
         ) : null}
         {media ? (
           <Stack spacing={2}>
-            <Typography
-              variant="h1"
-              sx={{
-                fontSize: { xs: '2.1rem', md: '3.5rem' },
-                overflowWrap: 'anywhere',
-              }}
-            >
-              {media.title}
-            </Typography>
             <Box
               ref={playerRef}
               sx={{

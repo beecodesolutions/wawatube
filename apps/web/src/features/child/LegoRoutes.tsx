@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import FullscreenRoundedIcon from '@mui/icons-material/FullscreenRounded';
-import { BackButton } from './BackButton';
+import { BackButton, ChildPageHeader } from './BackButton';
 import RestartAltRoundedIcon from '@mui/icons-material/RestartAltRounded';
 import {
   Box,
@@ -83,13 +83,7 @@ export function LegoSetsRoute() {
   return (
     <ChildFrame>
       <Container maxWidth="lg" sx={{ py: { xs: 3, md: 5 } }}>
-        <BackButton to="/" />
-        <Typography
-          variant="h1"
-          sx={{ mt: 2, mb: 4, fontSize: { xs: '2.5rem', md: '4rem' } }}
-        >
-          LEGO
-        </Typography>
+        <ChildPageHeader to="/" title="LEGO" />
         {error ? (
           <ErrorState message={error} retry={load} childFriendly />
         ) : null}
@@ -166,13 +160,7 @@ export function LegoMocsRoute() {
   return (
     <ChildFrame>
       <Container maxWidth="lg" sx={{ py: { xs: 3, md: 5 } }}>
-        <BackButton to="/lego" />
-        <Typography
-          variant="h1"
-          sx={{ mt: 3, mb: 4, fontSize: { xs: '2.5rem', md: '4rem' } }}
-        >
-          {setName || 'LEGO'}
-        </Typography>
+        <ChildPageHeader to="/lego" title={setName || 'LEGO'} />
         {error ? (
           <ErrorState message={error} retry={load} childFriendly />
         ) : null}
@@ -397,6 +385,7 @@ export function LegoReaderRoute() {
           sx={{
             flex: 1,
             pl: { xs: 1, sm: 2 },
+            textAlign: 'right',
             fontWeight: 800,
             overflow: 'hidden',
             textOverflow: 'ellipsis',
