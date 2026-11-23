@@ -113,6 +113,16 @@ export function ChildHome() {
           py: { xs: 4, md: 8 },
         }}
       >
+        <Typography
+          variant="h1"
+          sx={{
+            textAlign: 'center',
+            mb: { xs: 2, md: 4 },
+            fontSize: { xs: '2rem', md: '5rem' },
+          }}
+        >
+          ¿Qué querés hacer?
+        </Typography>
         <Box
           component="nav"
           aria-label="Elegir aplicación"
@@ -163,6 +173,19 @@ export function ChildHome() {
             </Card>
           ))}
         </Box>
+        <Box
+          aria-hidden="true"
+          className="cacomixtle-sprite"
+          sx={{
+            width: { xs: 96, md: 140 },
+            height: { xs: 96, md: 140 },
+            mx: 'auto',
+            mt: 2,
+            backgroundImage: "url('/cacomixtle-blink.png')",
+            animation: 'cacomixtle-blink 4s steps(1) infinite',
+            '@media (prefers-reduced-motion: reduce)': { animation: 'none' },
+          }}
+        />
       </Container>
     </ChildFrame>
   );
