@@ -619,13 +619,21 @@ function PdfPageCanvas({
           size.height / initialViewport.height,
         );
         const viewport = pdfPage.getViewport({ scale: Math.max(0.1, scale) });
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-        const context = canvas.getContext('2d');
+        const nextCanvas = document.createElement('canvas');
+        nextCanvas.width = viewport.width;
+        nextCanvas.height = viewport.height;
+        const context = nextCanvas.getContext('2d');
         if (!context) throw new Error('Canvas unavailable');
         const renderTask = pdfPage.render({ canvasContext: context, viewport });
         renderTaskRef.current = renderTask;
-        return renderTask.promise;
+        return renderTask.promise.then(() => {
+          if (cancelled) return;
+          const visibleContext = canvas.getContext('2d');
+          if (!visibleContext) throw new Error('Canvas unavailable');
+          canvas.width = nextCanvas.width;
+          canvas.height = nextCanvas.height;
+          visibleContext.drawImage(nextCanvas, 0, 0);
+        });
       })
       .catch(() => {
         if (!cancelled) onError();
