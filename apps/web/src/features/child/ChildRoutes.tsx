@@ -21,7 +21,6 @@ import {
   Container,
   Dialog,
   IconButton,
-  LinearProgress,
   SvgIcon,
   Stack,
   Typography,
@@ -251,26 +250,6 @@ export function ChildVideosHome() {
             ))}
           </Box>
         )}
-        <Stack
-          direction="row"
-          alignItems="center"
-          spacing={1.5}
-          sx={{ width: '100%', maxWidth: 1200, mx: 'auto', mt: 3 }}
-        >
-          <Box
-            component="img"
-            src="/cacomixtle-progress.webp"
-            alt=""
-            aria-hidden
-            sx={{ width: 56, height: 40, objectFit: 'contain' }}
-          />
-          <LinearProgress
-            variant="determinate"
-            value={0}
-            aria-label="Progreso del cacomixtle"
-            sx={{ flex: 1, height: 10, borderRadius: 5 }}
-          />
-        </Stack>
       </Container>
     </ChildFrame>
   );
